@@ -70,7 +70,7 @@ Wynik `frames_flagged` > 0 oznacza, że trzeba zbadać klatki z flagą, zanim pr
    python3 scripts/make_control.py set_plate.png --frames 124 --fps 24 \
        --out ~/ComfyUI/input/control_shot_01.mp4
    ```
-2. Ustal prawdziwą nazwę pliku ControlNet z audytu (`controlnet_candidates`, pole `available: true`).
+2. Sprawdź w audycie (`controlnet_candidates`, pole `available: true`), czy plik `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors` jest w liście. Nazwa pochodzi z oficjalnego szablonu Comfy, ale obecność na maszynie trzeba potwierdzić.
 3. Zbuduj graf z audytem:
    ```bash
    python3 scripts/build_ui_chain.py --shots 1 --frames 124 --controlnet \

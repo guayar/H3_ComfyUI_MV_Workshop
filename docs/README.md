@@ -63,7 +63,7 @@ Sterowanie geometrią zestawu: krawędzie z planu lokacji trzymają perspektywę
    ```bash
    python3 scripts/build_ui_chain.py --shots 3 --frames 124 --controlnet --audit h3_runtime_audit.json --out workflows/h3_chain_controlnet_ui.json
    ```
-   Domyślna nazwa to kandydat `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors` [lista oficjalna z briefu, nie pobrana tutaj]. Nie podstawiaj innej bez audytu.
+   Domyślna nazwa `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors` jest w oficjalnym szablonie Comfy (`video_minimax_h3_fun_controlnet_union.json`, węzeł ModelPatchLoader) [CODE szablonu]. To nie dowodzi obecności pliku u Ciebie: potwierdza audyt. Nie podstawiaj innej nazwy bez audytu.
 4. Siła ControlNet: `strength` (domyślnie 1.0), `start_percent` 0.0, `end_percent` 1.0. Wartości nie są zmierzone.
 
 **Zweryfikowane w kodzie:** `MiniMaxH3FunControlNetApply` (wejścia `model`, `model_patch`, `vae`, `strength`, `start_percent`, `end_percent`, `control_video`, `mask`, `source_video`; wyjście `MODEL`), `ModelPatchLoader` (wejście `name` z `models/model_patches`, wyjście `MODEL_PATCH`), `LoadVideo` i `GetVideoComponents` (wyjście `images`).
