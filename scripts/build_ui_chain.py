@@ -27,8 +27,14 @@ class Graph:
     def __init__(self):
         self.nodes = []
         self.links = []
+        self.groups = []
         self.next_node = 1
         self.next_link = 1
+
+    def group(self, title, bbox, color="#3f789e"):
+        """Grupa wizualna w UI (format litegraph): bbox = [x, y, szer, wys]."""
+        self.groups.append({"id": len(self.groups) + 1, "title": title, "bounding": list(bbox),
+                            "color": color, "font_size": 24, "flags": {}})
 
     def add(self, cls, title, inputs, outputs, widgets, pos):
         nid = self.next_node
@@ -60,14 +66,14 @@ class Graph:
 
     def to_ui(self):
         return {"last_node_id": self.next_node - 1, "last_link_id": self.next_link - 1,
-                "nodes": self.nodes, "links": self.links, "groups": [], "config": {}, "extra": {}, "version": 0.4}
+                "nodes": self.nodes, "links": self.links, "groups": self.groups, "config": {}, "extra": {}, "version": 0.4}
 
 
 # [OFFICIAL LIST, podane w briefie; nie pobrane w tej sesji] kandydat v1 INT8. Wymaga audytu runtime.
 CONTROL_PATCH_FILE = "minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors"
 
 
-def build(shots, frames, controlnet=False, text_encoder_value=None):
+def build(shots, frames, controlnet=False, text_encoder_value=None, extra_images=0, ref_videos=0, ref_audios=0):
     g = Graph()
     last_index = frames - 1
 
@@ -94,6 +100,29 @@ def build(shots, frames, controlnet=False, text_encoder_value=None):
                   ["simple", STEPS, 1], (400, 180))
     g.connect(unet, 0, sched, "model")
 
+    g.add("MarkdownNote", "Instrukcja (przeczytaj najpierw)", [], [],
+          [NOTE_TEXT], (-40, -560))
+    g.group("1. Modele i wejscia stale (nie edytuj, poza nazwami plikow)", [-60, -60, 420, 1300], "#2d6a4f")
+    # --- dodatkowe referencje (wspolne dla wszystkich ujec) ---
+    # Limity H3 [CODE nodes_minimax_h3.py]: 9 obrazow, 3 wideo, 3 audio. Obrazy: 0 = lokacja, 1 = postac,
+    # 2 = ostatnia klatka poprzedniego ujecia; dodatkowe od indeksu 3.
+    extra_nodes = []  # (nazwa_wejscia, typ, id_wezla_zrodlowego)
+    for k in range(extra_images):
+        nid = g.add("LoadImage", f"Referencja dodatkowa obraz {k+1}", [], [("IMAGE", "IMAGE"), ("MASK", "MASK")],
+                    [f"extra_ref_image_{k+1:02d}.png", "image"], (-420, 1300 + k * 140))
+        extra_nodes.append((f"ref_image_{3 + k}", "IMAGE", nid, 0))
+    for v in range(ref_videos):
+        lv = g.add("LoadVideo", f"Referencja wideo {v+1}: plik", [], [("VIDEO", "VIDEO")],
+                   [f"ref_video_{v+1:02d}.mp4", "video"], (-420, 1700 + v * 300))
+        cv = g.add("GetVideoComponents", f"Referencja wideo {v+1}: klatki", [("video", "VIDEO")],
+                   [("images", "IMAGE")], [], (-420, 1840 + v * 300))
+        g.connect(lv, 0, cv, "video")
+        extra_nodes.append((f"ref_video_{v}", "IMAGE", cv, 0))
+    for a_i in range(ref_audios):
+        la = g.add("LoadAudio", f"Referencja audio {a_i+1}", [], [("AUDIO", "AUDIO")],
+                   [f"ref_audio_{a_i+1:02d}.wav", "audio"], (-420, 2600 + a_i * 140))
+        extra_nodes.append((f"ref_audio_{a_i}", "AUDIO", la, 0))
+
     mp_loader = None
     if controlnet:
         mp_loader = g.add("ModelPatchLoader", "Model patch: Fun ControlNet (zweryfikuj audytem)", [],
@@ -101,13 +130,17 @@ def build(shots, frames, controlnet=False, text_encoder_value=None):
 
     prev_last_frame = None
     for i in range(shots):
-        col_x = 800 + i * 1100
+        col_x = 800 + i * 1500  # szerszy odstep: grupa ujecia + wezly ControlNet po lewej
+        g.group(f"Ujecie {i+1}: referencje -> Ref2VA -> probkowanie -> zapis PNG",
+                [col_x - 420, -60, 1380, 1320], ["#e76f51", "#2a9d8f", "#264653"][i % 3])
         row_y = 0
         seed = 261662374822964 + i
         ref_inputs = [("clip", "CLIP"), ("vae", "VAE"), ("audio_vae", "VAE"),
                       ("ref_image_0", "IMAGE"), ("ref_image_1", "IMAGE")]
         if prev_last_frame is not None:
             ref_inputs.append(("ref_image_2", "IMAGE"))
+        for (nm, typ, _nid, _slot) in extra_nodes:
+            ref_inputs.append((nm, typ))
         ref = g.add("MiniMaxH3ReferenceToVideo", f"Ujecie {i+1}: Ref2VA (SPRAWDZ WYJSCIA)",
                     ref_inputs,
                     [("CONDITIONING", "CONDITIONING"), ("LATENT", "LATENT")],
@@ -120,6 +153,8 @@ def build(shots, frames, controlnet=False, text_encoder_value=None):
         g.connect(character, 0, ref, "ref_image_1")
         if prev_last_frame is not None:
             g.connect(prev_last_frame, 0, ref, "ref_image_2")
+        for (nm, _typ, nid, slot) in extra_nodes:
+            g.connect(nid, slot, ref, nm)
 
         noise = g.add("RandomNoise", f"Ujecie {i+1}: ziarno", [], [("NOISE", "NOISE")],
                       [seed, "fixed"], (col_x, row_y + 280))
@@ -169,8 +204,31 @@ def build(shots, frames, controlnet=False, text_encoder_value=None):
             g.connect(dec, 0, last, "image")
             prev_last_frame = last
 
+    g.group("Notatka (ponizej: instrukcja)", [-60, -620, 1400, 520], "#555555")
     return g.to_ui()
 
+
+NOTE_TEXT = """# H3 Ref2VA: lancuch ujec (jak uzywac)
+
+**Przed startem**
+1. Wrzuc do folderu `ComfyUI/input/`: `set_plate.png` (lokacja) i `character_sheet.png` (postac).
+2. Jesli uzywasz ControlNet: wideo sterujace `control_shot_01.mp4` ... (generuje `scripts/make_control.py`).
+3. W wezlu **Model patch** wybierz plik z listy (musi byc zainstalowany). Nie zmieniaj nazwy recznie.
+
+**Ustawienia ujecia (wezly "Ujecie N: Ref2VA")**
+- `prompt`: jeden zwrot akcji, jeden nazwany ruch kamery albo zablokowany statyw. Zdania pozytywne, bez „nie”.
+- `length`: 17n+5 (np. 124 = ok. 5 s, 243 = ok. 10 s).
+- `ref_image_size`: `match` (domyslnie). `max` jest wolniejszy.
+- `noise_seed`: ten sam seed daje powtarzalny wynik.
+
+**Wyniki**
+- Klatki PNG: `ComfyUI/output/h3/shot_01_*.png` (kolejne ujecia: shot_02, shot_03).
+- Nie uzywaj wezla SaveVideo do oceny (miesza kolory BT.601/709). Zszywanie i MP4 robi `scripts/stitch_shots.py` (BT.709).
+
+**Ograniczenia**
+- Referencje w tym grafie: obraz lokacji, obraz postaci i ostatnia klatka poprzedniego ujecia (3 obrazy). Pelny zestaw (do 9 obrazow, 3 wideo, 3 audio) generuje `--extra-ref-images`, `--ref-videos`, `--ref-audios`. Audio wymaga referencji obrazu lub wideo.
+- Wszystkie wezly musza byc zainstalowane. Walidacja: `scripts/validate_graph_offline.py`.
+"""
 
 def check_control_file(audit_path):
     """Fail-fast: nie zapisuj grafu ControlNet, jesli raport audytu nie potwierdza pliku."""
@@ -194,6 +252,12 @@ def main():
     parser.add_argument("--audit", help="raport z scripts/audit_h3_runtime.py; bez zgodnego pliku graf nie zostanie zapisany")
     parser.add_argument("--text-encoder-value",
                         help="wartosc text_encoder z audytu (np. '<katalog>: <wariant pruned24>'); zamiast NVFP4 CLIPLoader")
+    parser.add_argument("--extra-ref-images", type=int, default=0,
+                        help="dodatkowe obrazy referencji (plik input/extra_ref_image_NN.png), maks. 6 przy wielu ujeciach")
+    parser.add_argument("--ref-videos", type=int, default=0, choices=range(0, 4),
+                        help="referencje wideo (input/ref_video_NN.mp4), limit H3: 3")
+    parser.add_argument("--ref-audios", type=int, default=0, choices=range(0, 4),
+                        help="referencje audio (input/ref_audio_NN.wav), limit H3: 3. Wymagaja referencji obrazu lub wideo")
     parser.add_argument("--controlnet", action="store_true",
                         help="dodaj Fun ControlNet: na ujecie wideo input/control_shot_NN.mp4 (patrz scripts/make_control.py)")
     args = parser.parse_args()
@@ -203,7 +267,12 @@ def main():
         check_control_file(args.audit)
     elif args.controlnet:
         print("UWAGA: brak --audit; nazwa pliku ControlNet NIEZWERYFIKOWANA w tym srodowisku")
-    wf = build(args.shots, args.frames, args.controlnet, args.text_encoder_value)
+    max_images = 9
+    base_images = 2 + (1 if args.shots > 1 else 0)
+    if base_images + args.extra_ref_images > max_images:
+        parser.error(f"obrazow referencji najwyzej {max_images}: {base_images} stale + {args.extra_ref_images} dodatkowe")
+    wf = build(args.shots, args.frames, args.controlnet, args.text_encoder_value,
+               extra_images=args.extra_ref_images, ref_videos=args.ref_videos, ref_audios=args.ref_audios)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(wf, fh, ensure_ascii=False, indent=1)
     print(f"zapisano {args.out}: {len(wf['nodes'])} wezlow, {len(wf['links'])} polaczen")

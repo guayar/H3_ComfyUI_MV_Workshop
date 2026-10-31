@@ -18,6 +18,7 @@ SUITES = [
     "test_homography_drift.py",
     "test_audit_h3_runtime.py",
     "test_validate_graph_offline.py",
+    "test_ref_limits.py",
 ]
 
 

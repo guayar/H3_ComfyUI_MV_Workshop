@@ -1,5 +1,5 @@
 {
- "last_node_id": 38,
+ "last_node_id": 39,
  "last_link_id": 65,
  "nodes": [
   {
@@ -316,6 +316,30 @@
   },
   {
    "id": 9,
+   "type": "MarkdownNote",
+   "pos": [
+    -40,
+    -560
+   ],
+   "size": [
+    320,
+    110
+   ],
+   "flags": {},
+   "order": 9,
+   "mode": 0,
+   "title": "Instrukcja (przeczytaj najpierw)",
+   "inputs": [],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "MarkdownNote"
+   },
+   "widgets_values": [
+    "# H3 Ref2VA: lancuch ujec (jak uzywac)\n\n**Przed startem**\n1. Wrzuc do folderu `ComfyUI/input/`: `set_plate.png` (lokacja) i `character_sheet.png` (postac).\n2. Jesli uzywasz ControlNet: wideo sterujace `control_shot_01.mp4` ... (generuje `scripts/make_control.py`).\n3. W wezlu **Model patch** wybierz plik z listy (musi byc zainstalowany). Nie zmieniaj nazwy recznie.\n\n**Ustawienia ujecia (wezly \"Ujecie N: Ref2VA\")**\n- `prompt`: jeden zwrot akcji, jeden nazwany ruch kamery albo zablokowany statyw. Zdania pozytywne, bez „nie”.\n- `length`: 17n+5 (np. 124 = ok. 5 s, 243 = ok. 10 s).\n- `ref_image_size`: `match` (domyslnie). `max` jest wolniejszy.\n- `noise_seed`: ten sam seed daje powtarzalny wynik.\n\n**Wyniki**\n- Klatki PNG: `ComfyUI/output/h3/shot_01_*.png` (kolejne ujecia: shot_02, shot_03).\n- Nie uzywaj wezla SaveVideo do oceny (miesza kolory BT.601/709). Zszywanie i MP4 robi `scripts/stitch_shots.py` (BT.709).\n\n**Ograniczenia**\n- Referencje w tym grafie: obraz lokacji, obraz postaci i ostatnia klatka poprzedniego ujecia (3 obrazy). Pelny zestaw (do 9 obrazow, 3 wideo, 3 audio) generuje `--extra-ref-images`, `--ref-videos`, `--ref-audios`. Audio wymaga referencji obrazu lub wideo.\n- Wszystkie wezly musza byc zainstalowane. Walidacja: `scripts/validate_graph_offline.py`.\n"
+   ]
+  },
+  {
+   "id": 10,
    "type": "ModelPatchLoader",
    "pos": [
     0,
@@ -326,7 +350,7 @@
     110
    ],
    "flags": {},
-   "order": 9,
+   "order": 10,
    "mode": 0,
    "title": "Model patch: Fun ControlNet (zweryfikuj audytem)",
    "inputs": [],
@@ -350,7 +374,7 @@
    ]
   },
   {
-   "id": 10,
+   "id": 11,
    "type": "MiniMaxH3ReferenceToVideo",
    "pos": [
     800,
@@ -361,7 +385,7 @@
     110
    ],
    "flags": {},
-   "order": 10,
+   "order": 11,
    "mode": 0,
    "title": "Ujecie 1: Ref2VA (SPRAWDZ WYJSCIA)",
    "inputs": [
@@ -421,7 +445,7 @@
    ]
   },
   {
-   "id": 11,
+   "id": 12,
    "type": "RandomNoise",
    "pos": [
     800,
@@ -432,7 +456,7 @@
     110
    ],
    "flags": {},
-   "order": 11,
+   "order": 12,
    "mode": 0,
    "title": "Ujecie 1: ziarno",
    "inputs": [],
@@ -455,7 +479,7 @@
    ]
   },
   {
-   "id": 12,
+   "id": 13,
    "type": "BasicGuider",
    "pos": [
     800,
@@ -466,7 +490,7 @@
     110
    ],
    "flags": {},
-   "order": 12,
+   "order": 13,
    "mode": 0,
    "title": "Ujecie 1: guider",
    "inputs": [
@@ -497,7 +521,7 @@
    "widgets_values": []
   },
   {
-   "id": 13,
+   "id": 14,
    "type": "LoadVideo",
    "pos": [
     400,
@@ -508,7 +532,7 @@
     110
    ],
    "flags": {},
-   "order": 13,
+   "order": 14,
    "mode": 0,
    "title": "Ujecie 1: wideo sterujace",
    "inputs": [],
@@ -531,7 +555,7 @@
    ]
   },
   {
-   "id": 14,
+   "id": 15,
    "type": "GetVideoComponents",
    "pos": [
     400,
@@ -542,7 +566,7 @@
     110
    ],
    "flags": {},
-   "order": 14,
+   "order": 15,
    "mode": 0,
    "title": "Ujecie 1: klatki sterujace",
    "inputs": [
@@ -568,7 +592,7 @@
    "widgets_values": []
   },
   {
-   "id": 15,
+   "id": 16,
    "type": "MiniMaxH3FunControlNetApply",
    "pos": [
     400,
@@ -579,7 +603,7 @@
     110
    ],
    "flags": {},
-   "order": 15,
+   "order": 16,
    "mode": 0,
    "title": "Ujecie 1: Fun ControlNet",
    "inputs": [
@@ -624,7 +648,7 @@
    ]
   },
   {
-   "id": 16,
+   "id": 17,
    "type": "SamplerCustomAdvanced",
    "pos": [
     800,
@@ -635,7 +659,7 @@
     110
    ],
    "flags": {},
-   "order": 16,
+   "order": 17,
    "mode": 0,
    "title": "Ujecie 1: probkowanie",
    "inputs": [
@@ -687,7 +711,7 @@
    "widgets_values": []
   },
   {
-   "id": 17,
+   "id": 18,
    "type": "VAEDecode",
    "pos": [
     800,
@@ -698,7 +722,7 @@
     110
    ],
    "flags": {},
-   "order": 17,
+   "order": 18,
    "mode": 0,
    "title": "Ujecie 1: dekodowanie",
    "inputs": [
@@ -730,7 +754,7 @@
    "widgets_values": []
   },
   {
-   "id": 18,
+   "id": 19,
    "type": "SaveImage",
    "pos": [
     800,
@@ -741,7 +765,7 @@
     110
    ],
    "flags": {},
-   "order": 18,
+   "order": 19,
    "mode": 0,
    "title": "Ujecie 1: zapis klatek PNG",
    "inputs": [
@@ -760,7 +784,7 @@
    ]
   },
   {
-   "id": 19,
+   "id": 20,
    "type": "ImageFromBatch",
    "pos": [
     800,
@@ -771,7 +795,7 @@
     110
    ],
    "flags": {},
-   "order": 19,
+   "order": 20,
    "mode": 0,
    "title": "Ujecie 1: ostatnia klatka -> ref dla ujecia 2",
    "inputs": [
@@ -800,10 +824,10 @@
    ]
   },
   {
-   "id": 20,
+   "id": 21,
    "type": "MiniMaxH3ReferenceToVideo",
    "pos": [
-    1900,
+    2300,
     0
    ],
    "size": [
@@ -811,7 +835,7 @@
     110
    ],
    "flags": {},
-   "order": 20,
+   "order": 21,
    "mode": 0,
    "title": "Ujecie 2: Ref2VA (SPRAWDZ WYJSCIA)",
    "inputs": [
@@ -876,10 +900,10 @@
    ]
   },
   {
-   "id": 21,
+   "id": 22,
    "type": "RandomNoise",
    "pos": [
-    1900,
+    2300,
     280
    ],
    "size": [
@@ -887,7 +911,7 @@
     110
    ],
    "flags": {},
-   "order": 21,
+   "order": 22,
    "mode": 0,
    "title": "Ujecie 2: ziarno",
    "inputs": [],
@@ -910,10 +934,10 @@
    ]
   },
   {
-   "id": 22,
+   "id": 23,
    "type": "BasicGuider",
    "pos": [
-    1900,
+    2300,
     420
    ],
    "size": [
@@ -921,7 +945,7 @@
     110
    ],
    "flags": {},
-   "order": 22,
+   "order": 23,
    "mode": 0,
    "title": "Ujecie 2: guider",
    "inputs": [
@@ -952,10 +976,10 @@
    "widgets_values": []
   },
   {
-   "id": 23,
+   "id": 24,
    "type": "LoadVideo",
    "pos": [
-    1500,
+    1900,
     100
    ],
    "size": [
@@ -963,7 +987,7 @@
     110
    ],
    "flags": {},
-   "order": 23,
+   "order": 24,
    "mode": 0,
    "title": "Ujecie 2: wideo sterujace",
    "inputs": [],
@@ -986,10 +1010,10 @@
    ]
   },
   {
-   "id": 24,
+   "id": 25,
    "type": "GetVideoComponents",
    "pos": [
-    1500,
+    1900,
     240
    ],
    "size": [
@@ -997,7 +1021,7 @@
     110
    ],
    "flags": {},
-   "order": 24,
+   "order": 25,
    "mode": 0,
    "title": "Ujecie 2: klatki sterujace",
    "inputs": [
@@ -1023,10 +1047,10 @@
    "widgets_values": []
   },
   {
-   "id": 25,
+   "id": 26,
    "type": "MiniMaxH3FunControlNetApply",
    "pos": [
-    1500,
+    1900,
     380
    ],
    "size": [
@@ -1034,7 +1058,7 @@
     110
    ],
    "flags": {},
-   "order": 25,
+   "order": 26,
    "mode": 0,
    "title": "Ujecie 2: Fun ControlNet",
    "inputs": [
@@ -1079,10 +1103,10 @@
    ]
   },
   {
-   "id": 26,
+   "id": 27,
    "type": "SamplerCustomAdvanced",
    "pos": [
-    1900,
+    2300,
     560
    ],
    "size": [
@@ -1090,7 +1114,7 @@
     110
    ],
    "flags": {},
-   "order": 26,
+   "order": 27,
    "mode": 0,
    "title": "Ujecie 2: probkowanie",
    "inputs": [
@@ -1142,10 +1166,10 @@
    "widgets_values": []
   },
   {
-   "id": 27,
+   "id": 28,
    "type": "VAEDecode",
    "pos": [
-    1900,
+    2300,
     760
    ],
    "size": [
@@ -1153,7 +1177,7 @@
     110
    ],
    "flags": {},
-   "order": 27,
+   "order": 28,
    "mode": 0,
    "title": "Ujecie 2: dekodowanie",
    "inputs": [
@@ -1185,10 +1209,10 @@
    "widgets_values": []
   },
   {
-   "id": 28,
+   "id": 29,
    "type": "SaveImage",
    "pos": [
-    1900,
+    2300,
     900
    ],
    "size": [
@@ -1196,7 +1220,7 @@
     110
    ],
    "flags": {},
-   "order": 28,
+   "order": 29,
    "mode": 0,
    "title": "Ujecie 2: zapis klatek PNG",
    "inputs": [
@@ -1215,10 +1239,10 @@
    ]
   },
   {
-   "id": 29,
+   "id": 30,
    "type": "ImageFromBatch",
    "pos": [
-    1900,
+    2300,
     1040
    ],
    "size": [
@@ -1226,7 +1250,7 @@
     110
    ],
    "flags": {},
-   "order": 29,
+   "order": 30,
    "mode": 0,
    "title": "Ujecie 2: ostatnia klatka -> ref dla ujecia 3",
    "inputs": [
@@ -1255,10 +1279,10 @@
    ]
   },
   {
-   "id": 30,
+   "id": 31,
    "type": "MiniMaxH3ReferenceToVideo",
    "pos": [
-    3000,
+    3800,
     0
    ],
    "size": [
@@ -1266,7 +1290,7 @@
     110
    ],
    "flags": {},
-   "order": 30,
+   "order": 31,
    "mode": 0,
    "title": "Ujecie 3: Ref2VA (SPRAWDZ WYJSCIA)",
    "inputs": [
@@ -1331,10 +1355,10 @@
    ]
   },
   {
-   "id": 31,
+   "id": 32,
    "type": "RandomNoise",
    "pos": [
-    3000,
+    3800,
     280
    ],
    "size": [
@@ -1342,7 +1366,7 @@
     110
    ],
    "flags": {},
-   "order": 31,
+   "order": 32,
    "mode": 0,
    "title": "Ujecie 3: ziarno",
    "inputs": [],
@@ -1365,10 +1389,10 @@
    ]
   },
   {
-   "id": 32,
+   "id": 33,
    "type": "BasicGuider",
    "pos": [
-    3000,
+    3800,
     420
    ],
    "size": [
@@ -1376,7 +1400,7 @@
     110
    ],
    "flags": {},
-   "order": 32,
+   "order": 33,
    "mode": 0,
    "title": "Ujecie 3: guider",
    "inputs": [
@@ -1407,10 +1431,10 @@
    "widgets_values": []
   },
   {
-   "id": 33,
+   "id": 34,
    "type": "LoadVideo",
    "pos": [
-    2600,
+    3400,
     100
    ],
    "size": [
@@ -1418,7 +1442,7 @@
     110
    ],
    "flags": {},
-   "order": 33,
+   "order": 34,
    "mode": 0,
    "title": "Ujecie 3: wideo sterujace",
    "inputs": [],
@@ -1441,10 +1465,10 @@
    ]
   },
   {
-   "id": 34,
+   "id": 35,
    "type": "GetVideoComponents",
    "pos": [
-    2600,
+    3400,
     240
    ],
    "size": [
@@ -1452,7 +1476,7 @@
     110
    ],
    "flags": {},
-   "order": 34,
+   "order": 35,
    "mode": 0,
    "title": "Ujecie 3: klatki sterujace",
    "inputs": [
@@ -1478,10 +1502,10 @@
    "widgets_values": []
   },
   {
-   "id": 35,
+   "id": 36,
    "type": "MiniMaxH3FunControlNetApply",
    "pos": [
-    2600,
+    3400,
     380
    ],
    "size": [
@@ -1489,7 +1513,7 @@
     110
    ],
    "flags": {},
-   "order": 35,
+   "order": 36,
    "mode": 0,
    "title": "Ujecie 3: Fun ControlNet",
    "inputs": [
@@ -1534,10 +1558,10 @@
    ]
   },
   {
-   "id": 36,
+   "id": 37,
    "type": "SamplerCustomAdvanced",
    "pos": [
-    3000,
+    3800,
     560
    ],
    "size": [
@@ -1545,7 +1569,7 @@
     110
    ],
    "flags": {},
-   "order": 36,
+   "order": 37,
    "mode": 0,
    "title": "Ujecie 3: probkowanie",
    "inputs": [
@@ -1597,10 +1621,10 @@
    "widgets_values": []
   },
   {
-   "id": 37,
+   "id": 38,
    "type": "VAEDecode",
    "pos": [
-    3000,
+    3800,
     760
    ],
    "size": [
@@ -1608,7 +1632,7 @@
     110
    ],
    "flags": {},
-   "order": 37,
+   "order": 38,
    "mode": 0,
    "title": "Ujecie 3: dekodowanie",
    "inputs": [
@@ -1639,10 +1663,10 @@
    "widgets_values": []
   },
   {
-   "id": 38,
+   "id": 39,
    "type": "SaveImage",
    "pos": [
-    3000,
+    3800,
     900
    ],
    "size": [
@@ -1650,7 +1674,7 @@
     110
    ],
    "flags": {},
-   "order": 38,
+   "order": 39,
    "mode": 0,
    "title": "Ujecie 3: zapis klatek PNG",
    "inputs": [
@@ -1682,7 +1706,7 @@
    2,
    2,
    0,
-   10,
+   11,
    0,
    "CLIP"
   ],
@@ -1690,7 +1714,7 @@
    3,
    3,
    0,
-   10,
+   11,
    1,
    "VAE"
   ],
@@ -1698,7 +1722,7 @@
    4,
    4,
    0,
-   10,
+   11,
    2,
    "VAE"
   ],
@@ -1706,7 +1730,7 @@
    5,
    5,
    0,
-   10,
+   11,
    3,
    "IMAGE"
   ],
@@ -1714,15 +1738,15 @@
    6,
    6,
    0,
-   10,
+   11,
    4,
    "IMAGE"
   ],
   [
    7,
-   13,
-   0,
    14,
+   0,
+   15,
    0,
    "VIDEO"
   ],
@@ -1730,15 +1754,15 @@
    8,
    1,
    0,
-   15,
+   16,
    0,
    "MODEL"
   ],
   [
    9,
-   9,
+   10,
    0,
-   15,
+   16,
    1,
    "MODEL_PATCH"
   ],
@@ -1746,47 +1770,47 @@
    10,
    3,
    0,
-   15,
+   16,
    2,
    "VAE"
   ],
   [
    11,
-   14,
-   0,
    15,
+   0,
+   16,
    3,
    "IMAGE"
   ],
   [
    12,
-   15,
+   16,
    0,
-   12,
+   13,
    0,
    "MODEL"
   ],
   [
    13,
-   10,
+   11,
    0,
-   12,
+   13,
    1,
    "CONDITIONING"
   ],
   [
    14,
-   11,
+   12,
    0,
-   16,
+   17,
    0,
    "NOISE"
   ],
   [
    15,
-   12,
+   13,
    0,
-   16,
+   17,
    1,
    "GUIDER"
   ],
@@ -1794,7 +1818,7 @@
    16,
    7,
    0,
-   16,
+   17,
    2,
    "SAMPLER"
   ],
@@ -1802,23 +1826,23 @@
    17,
    8,
    0,
-   16,
+   17,
    3,
    "SIGMAS"
   ],
   [
    18,
-   10,
+   11,
    1,
-   16,
+   17,
    4,
    "LATENT"
   ],
   [
    19,
-   16,
-   0,
    17,
+   0,
+   18,
    0,
    "LATENT"
   ],
@@ -1826,23 +1850,23 @@
    20,
    3,
    0,
-   17,
+   18,
    1,
    "VAE"
   ],
   [
    21,
-   17,
-   0,
    18,
+   0,
+   19,
    0,
    "IMAGE"
   ],
   [
    22,
-   17,
+   18,
    0,
-   19,
+   20,
    0,
    "IMAGE"
   ],
@@ -1850,7 +1874,7 @@
    23,
    2,
    0,
-   20,
+   21,
    0,
    "CLIP"
   ],
@@ -1858,7 +1882,7 @@
    24,
    3,
    0,
-   20,
+   21,
    1,
    "VAE"
   ],
@@ -1866,7 +1890,7 @@
    25,
    4,
    0,
-   20,
+   21,
    2,
    "VAE"
   ],
@@ -1874,7 +1898,7 @@
    26,
    5,
    0,
-   20,
+   21,
    3,
    "IMAGE"
   ],
@@ -1882,23 +1906,23 @@
    27,
    6,
    0,
-   20,
+   21,
    4,
    "IMAGE"
   ],
   [
    28,
-   19,
-   0,
    20,
+   0,
+   21,
    5,
    "IMAGE"
   ],
   [
    29,
-   23,
-   0,
    24,
+   0,
+   25,
    0,
    "VIDEO"
   ],
@@ -1906,15 +1930,15 @@
    30,
    1,
    0,
-   25,
+   26,
    0,
    "MODEL"
   ],
   [
    31,
-   9,
+   10,
    0,
-   25,
+   26,
    1,
    "MODEL_PATCH"
   ],
@@ -1922,47 +1946,47 @@
    32,
    3,
    0,
-   25,
+   26,
    2,
    "VAE"
   ],
   [
    33,
-   24,
-   0,
    25,
+   0,
+   26,
    3,
    "IMAGE"
   ],
   [
    34,
-   25,
+   26,
    0,
-   22,
+   23,
    0,
    "MODEL"
   ],
   [
    35,
-   20,
+   21,
    0,
-   22,
+   23,
    1,
    "CONDITIONING"
   ],
   [
    36,
-   21,
+   22,
    0,
-   26,
+   27,
    0,
    "NOISE"
   ],
   [
    37,
-   22,
+   23,
    0,
-   26,
+   27,
    1,
    "GUIDER"
   ],
@@ -1970,7 +1994,7 @@
    38,
    7,
    0,
-   26,
+   27,
    2,
    "SAMPLER"
   ],
@@ -1978,23 +2002,23 @@
    39,
    8,
    0,
-   26,
+   27,
    3,
    "SIGMAS"
   ],
   [
    40,
-   20,
+   21,
    1,
-   26,
+   27,
    4,
    "LATENT"
   ],
   [
    41,
-   26,
-   0,
    27,
+   0,
+   28,
    0,
    "LATENT"
   ],
@@ -2002,23 +2026,23 @@
    42,
    3,
    0,
-   27,
+   28,
    1,
    "VAE"
   ],
   [
    43,
-   27,
-   0,
    28,
+   0,
+   29,
    0,
    "IMAGE"
   ],
   [
    44,
-   27,
+   28,
    0,
-   29,
+   30,
    0,
    "IMAGE"
   ],
@@ -2026,7 +2050,7 @@
    45,
    2,
    0,
-   30,
+   31,
    0,
    "CLIP"
   ],
@@ -2034,7 +2058,7 @@
    46,
    3,
    0,
-   30,
+   31,
    1,
    "VAE"
   ],
@@ -2042,7 +2066,7 @@
    47,
    4,
    0,
-   30,
+   31,
    2,
    "VAE"
   ],
@@ -2050,7 +2074,7 @@
    48,
    5,
    0,
-   30,
+   31,
    3,
    "IMAGE"
   ],
@@ -2058,23 +2082,23 @@
    49,
    6,
    0,
-   30,
+   31,
    4,
    "IMAGE"
   ],
   [
    50,
-   29,
-   0,
    30,
+   0,
+   31,
    5,
    "IMAGE"
   ],
   [
    51,
-   33,
-   0,
    34,
+   0,
+   35,
    0,
    "VIDEO"
   ],
@@ -2082,15 +2106,15 @@
    52,
    1,
    0,
-   35,
+   36,
    0,
    "MODEL"
   ],
   [
    53,
-   9,
+   10,
    0,
-   35,
+   36,
    1,
    "MODEL_PATCH"
   ],
@@ -2098,47 +2122,47 @@
    54,
    3,
    0,
-   35,
+   36,
    2,
    "VAE"
   ],
   [
    55,
-   34,
-   0,
    35,
+   0,
+   36,
    3,
    "IMAGE"
   ],
   [
    56,
-   35,
+   36,
    0,
-   32,
+   33,
    0,
    "MODEL"
   ],
   [
    57,
-   30,
+   31,
    0,
-   32,
+   33,
    1,
    "CONDITIONING"
   ],
   [
    58,
-   31,
+   32,
    0,
-   36,
+   37,
    0,
    "NOISE"
   ],
   [
    59,
-   32,
+   33,
    0,
-   36,
+   37,
    1,
    "GUIDER"
   ],
@@ -2146,7 +2170,7 @@
    60,
    7,
    0,
-   36,
+   37,
    2,
    "SAMPLER"
   ],
@@ -2154,23 +2178,23 @@
    61,
    8,
    0,
-   36,
+   37,
    3,
    "SIGMAS"
   ],
   [
    62,
-   30,
+   31,
    1,
-   36,
+   37,
    4,
    "LATENT"
   ],
   [
    63,
-   36,
-   0,
    37,
+   0,
+   38,
    0,
    "LATENT"
   ],
@@ -2178,20 +2202,86 @@
    64,
    3,
    0,
-   37,
+   38,
    1,
    "VAE"
   ],
   [
    65,
-   37,
-   0,
    38,
+   0,
+   39,
    0,
    "IMAGE"
   ]
  ],
- "groups": [],
+ "groups": [
+  {
+   "id": 1,
+   "title": "1. Modele i wejscia stale (nie edytuj, poza nazwami plikow)",
+   "bounding": [
+    -60,
+    -60,
+    420,
+    1300
+   ],
+   "color": "#2d6a4f",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "id": 2,
+   "title": "Ujecie 1: referencje -> Ref2VA -> probkowanie -> zapis PNG",
+   "bounding": [
+    380,
+    -60,
+    1380,
+    1320
+   ],
+   "color": "#e76f51",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "id": 3,
+   "title": "Ujecie 2: referencje -> Ref2VA -> probkowanie -> zapis PNG",
+   "bounding": [
+    1880,
+    -60,
+    1380,
+    1320
+   ],
+   "color": "#2a9d8f",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "id": 4,
+   "title": "Ujecie 3: referencje -> Ref2VA -> probkowanie -> zapis PNG",
+   "bounding": [
+    3380,
+    -60,
+    1380,
+    1320
+   ],
+   "color": "#264653",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "id": 5,
+   "title": "Notatka (ponizej: instrukcja)",
+   "bounding": [
+    -60,
+    -620,
+    1400,
+    520
+   ],
+   "color": "#555555",
+   "font_size": 24,
+   "flags": {}
+  }
+ ],
  "config": {},
  "extra": {},
  "version": 0.4

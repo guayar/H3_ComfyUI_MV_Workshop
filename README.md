@@ -14,6 +14,10 @@ Każdy projekt dostarcza własne referencje postaci i lokacji, plan ujęć oraz 
 - 🔬 **[Głęboki research – docs/RESEARCH_DEEP.md](docs/RESEARCH_DEEP.md)** – rozwiązania dla kamery, spójności, audio i ROCm, z oznaczeniem, co jest zweryfikowane.
 - 🔬 **[Wstępny research – docs/RESEARCH_PARTIAL.md](docs/RESEARCH_PARTIAL.md)** – pierwsza runda.
 
+## Jak używać w ComfyUI
+
+- 🖱️ **[Instrukcja obsługi w UI – docs/HOW_TO_USE_UI.md](docs/HOW_TO_USE_UI.md)**: które grafy otworzyć, co wpisać, gdzie są wyniki, jak zszyć.
+
 ## Graf
 
 - `workflows/h3_r2v_shot_api.json` – minimalny graf jednego ujęcia Ref2VA (14 węzłów, format API ComfyUI).

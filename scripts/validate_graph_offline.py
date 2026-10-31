@@ -102,7 +102,7 @@ def validate_ui(graph, schema):
             expanded.append((inp, False))
             if inp["type"] == "INT" and inp["meta"].get("control_after_generate"):
                 expanded.append((inp, True))
-            if inp["type"] == "COMBO" and (inp["meta"].get("image_upload") or inp["meta"].get("video_upload")):
+            if inp["type"] == "COMBO" and any(inp["meta"].get(k) for k in ("image_upload", "video_upload", "audio_upload")):
                 expanded.append((inp, "upload"))  # widget uploadu w UI (np. LoadImage: "image")
         values = n.get("widgets_values", [])
         if len(values) != len(expanded):
