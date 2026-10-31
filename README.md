@@ -11,4 +11,10 @@ Każdy projekt dostarcza własne referencje postaci i lokacji, plan ujęć oraz 
 ## Dokumentacja
 
 - 📖 **[Instrukcja użycia i szczegóły – docs/README.md](docs/README.md)** – wymagania, instalacja, struktura projektu, jak prowadzić projekt krok po kroku.
-- 🔬 **[Raport z researchu – docs/RESEARCH_PARTIAL.md](docs/RESEARCH_PARTIAL.md)** – co jest zweryfikowane, a co nie.
+- 🔬 **[Głęboki research – docs/RESEARCH_DEEP.md](docs/RESEARCH_DEEP.md)** – rozwiązania dla kamery, spójności, audio i ROCm, z oznaczeniem, co jest zweryfikowane.
+- 🔬 **[Wstępny research – docs/RESEARCH_PARTIAL.md](docs/RESEARCH_PARTIAL.md)** – pierwsza runda.
+
+## Graf
+
+- `workflows/h3_r2v_shot_api.json` – minimalny graf jednego ujęcia Ref2VA (14 węzłów, format API ComfyUI).
+- `scripts/queue_shot.py` – wrzuca graf do kolejki ComfyUI i pozwala nadpisać parametry.

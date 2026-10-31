@@ -73,6 +73,28 @@ Workflow dzieli pracę na etapy. Po każdym etapie następuje **bramka człowiek
 
 ---
 
+### Graf: `workflows/h3_r2v_shot_api.json`
+
+Pierwszy, minimalny graf jednego ujęcia Ref2VA (format API ComfyUI). Zawiera tylko klasy potwierdzone w oficjalnym szablonie Comfy, plus `SaveImage` do sekwencji PNG.
+
+- Wejścia: `set_plate.png` (węzeł 5, lokacja) i `character_sheet.png` (węzeł 6, postać). Pliki muszą być w folderze `input/` ComfyUI.
+- Prompt: węzeł 7, pole `prompt`. Długość: pole `length` (formuła 17n+5, patrz [RESEARCH_DEEP.md](RESEARCH_DEEP.md)).
+- Turbo LoRA i 4 kroki nie są w tym grafie. Domyślnie 20 kroków, bez LoRA.
+
+**Uruchomienie** (serwer ComfyUI na `127.0.0.1:8188`):
+
+```bash
+python3 scripts/queue_shot.py workflows/h3_r2v_shot_api.json --dry-run
+python3 scripts/queue_shot.py workflows/h3_r2v_shot_api.json \
+    --set 7.prompt="Gardener walks in, turns to the roses, no speech" \
+    --set 7.length=243 --set 14.filename_prefix=h3/shot_010
+```
+
+**Przy pierwszym uruchomieniu sprawdź (oznaczone jako niezweryfikowane):**
+1. Kolejność wyjść węzła 7: slot 0 jako warunkowanie i slot 1 jako latent. Jeśli kolejność jest zła, ComfyUI zgłosi błąd typu.
+2. Parametr `match` z szablonu nie jest w grafie. Jeśli model go wymaga, dodaj go po ustaleniu nazwy.
+3. Wyjście bez szumu i mozaiki (gfx1201, patrz RESEARCH_DEEP §7).
+
 ## 4. Kryteria akceptacji (propozycje)
 
 | Metryka | Próg (propozycja) |
