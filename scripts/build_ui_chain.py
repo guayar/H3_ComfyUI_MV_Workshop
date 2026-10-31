@@ -63,7 +63,10 @@ class Graph:
                 "nodes": self.nodes, "links": self.links, "groups": [], "config": {}, "extra": {}, "version": 0.4}
 
 
-def build(shots, frames):
+CONTROL_PATCH_FILE = "minimax_h3_fun_controlnet_union.safetensors"  # UNVERIFIED: nazwe sprawdz w folderze model_patches
+
+
+def build(shots, frames, controlnet=False):
     g = Graph()
     last_index = frames - 1
 
@@ -84,6 +87,11 @@ def build(shots, frames):
     sched = g.add("BasicScheduler", "Harmonogram krokow", [("model", "MODEL")], [("SIGMAS", "SIGMAS")],
                   ["simple", STEPS, 1], (400, 180))
     g.connect(unet, 0, sched, "model")
+
+    mp_loader = None
+    if controlnet:
+        mp_loader = g.add("ModelPatchLoader", "Model patch: Fun ControlNet (SPRAWDZ NAZWE PLIKU)", [],
+                          [("MODEL_PATCH", "MODEL_PATCH")], [CONTROL_PATCH_FILE], (0, 1080))
 
     prev_last_frame = None
     for i in range(shots):
@@ -111,7 +119,24 @@ def build(shots, frames):
                       [seed, "fixed"], (col_x, row_y + 280))
         guider = g.add("BasicGuider", f"Ujecie {i+1}: guider", [("model", "MODEL"), ("conditioning", "CONDITIONING")],
                        [("GUIDER", "GUIDER")], [], (col_x, row_y + 420))
-        g.connect(unet, 0, guider, "model")
+        model_for_guider = unet
+        if controlnet:
+            # sterowanie per ujecie: wideo z folderu input/ -> klatki IMAGE -> patch na modelu
+            cv = g.add("LoadVideo", f"Ujecie {i+1}: wideo sterujace", [], [("VIDEO", "VIDEO")],
+                       [f"control_shot_{i+1:02d}.mp4"], (col_x - 400, row_y + 100))
+            cc = g.add("GetVideoComponents", f"Ujecie {i+1}: klatki sterujace", [("video", "VIDEO")],
+                       [("images", "IMAGE")], [], (col_x - 400, row_y + 240))
+            g.connect(cv, 0, cc, "video")
+            fc = g.add("MiniMaxH3FunControlNetApply", f"Ujecie {i+1}: Fun ControlNet",
+                       [("model", "MODEL"), ("model_patch", "MODEL_PATCH"), ("vae", "VAE"),
+                        ("control_video", "IMAGE")],
+                       [("MODEL", "MODEL")], [1.0, 0.0, 1.0], (col_x - 400, row_y + 380))
+            g.connect(unet, 0, fc, "model")
+            g.connect(mp_loader, 0, fc, "model_patch")
+            g.connect(vae_v, 0, fc, "vae")
+            g.connect(cc, 0, fc, "control_video")
+            model_for_guider = fc
+        g.connect(model_for_guider, 0, guider, "model")
         g.connect(ref, 0, guider, "conditioning")
         samp = g.add("SamplerCustomAdvanced", f"Ujecie {i+1}: probkowanie",
                      [("noise", "NOISE"), ("guider", "GUIDER"), ("sampler", "SAMPLER"),
@@ -147,10 +172,12 @@ def main():
     parser.add_argument("--frames", type=int, default=243,
                         help="klatki na ujecie, musi byc 17n+5 (243 = ~10,1 s przy 24 fps)")
     parser.add_argument("--out", default="workflows/h3_chain_ui.json")
+    parser.add_argument("--controlnet", action="store_true",
+                        help="dodaj Fun ControlNet: na ujecie wideo input/control_shot_NN.mp4 (patrz scripts/make_control.py)")
     args = parser.parse_args()
     if args.frames % 17 != 5:
         parser.error("--frames musi byc w siatce 17n+5, np. 124, 192, 243")
-    wf = build(args.shots, args.frames)
+    wf = build(args.shots, args.frames, args.controlnet)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(wf, fh, ensure_ascii=False, indent=1)
     print(f"zapisano {args.out}: {len(wf['nodes'])} wezlow, {len(wf['links'])} polaczen")

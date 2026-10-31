@@ -48,6 +48,24 @@ python3 scripts/build_ui_chain.py --shots 3 --frames 243 --out workflows/h3_chai
 
 Wczytaj plik w ComfyUI przez Workflow → Open. Przed uruchomieniem wpisz prompty w węzłach „Ujęcie N: Ref2VA”, a pliki `set_plate.png` i `character_sheet.png` umieść w `input/`.
 
+### ControlNet (Fun ControlNet, natywny węzeł)
+
+Sterowanie geometrią zestawu: krawędzie z planu lokacji trzymają perspektywę między ujęciami.
+
+1. Wygeneruj wideo sterujące z planu lokacji i wrzuć do `input/` ComfyUI:
+   ```bash
+   python3 scripts/make_control.py set_plate.png --frames 243 --fps 24 \
+       --out ~/ComfyUI/input/control_shot_01.mp4
+   ```
+   Powtórz dla każdego ujęcia (`control_shot_02.mp4` itd.).
+2. Wczytaj `workflows/h3_chain_controlnet_ui.json` w ComfyUI.
+3. W węźle **Model patch: Fun ControlNet** ustaw plik z folderu `models/model_patches`. **Nazwa w grafie jest niezweryfikowana** (`minimax_h3_fun_controlnet_union.safetensors`), wybierz właściwą z listy.
+4. Siła ControlNet: `strength` (domyślnie 1.0), `start_percent` 0.0, `end_percent` 1.0. Wartości nie są zmierzone.
+
+**Zweryfikowane w kodzie:** `MiniMaxH3FunControlNetApply` (wejścia `model`, `model_patch`, `vae`, `strength`, `start_percent`, `end_percent`, `control_video`, `mask`, `source_video`; wyjście `MODEL`), `ModelPatchLoader` (wejście `name` z `models/model_patches`, wyjście `MODEL_PATCH`), `LoadVideo` i `GetVideoComponents` (wyjście `images`).
+
+**Niezweryfikowane:** nazwa pliku ControlNet, czy wideo sterujące o 243 klatkach jest w pełni wykorzystane, oraz czy krawędzie z `make_control.py` (uproszczony Canny) wystarczą. Krawędzie są liczone w numpy, bez histerezy.
+
 ## 2. Instalacja
 
 1. Zainstaluj ComfyUI i zweryfikuj działanie na ROCm.
