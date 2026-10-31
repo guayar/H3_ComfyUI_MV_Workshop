@@ -1,7 +1,7 @@
 // Testy logiki planu panelu H3 Director. Uruchomienie: node panel/test_plan_core.js
 "use strict";
 const assert = require("assert");
-const P = require("./plan_core.js");
+const P = require("../web/plan_core.js");
 
 function throwsWith(fn, pattern) {
   let err = null;

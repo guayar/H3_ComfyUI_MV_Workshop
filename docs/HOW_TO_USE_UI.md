@@ -123,7 +123,7 @@ Walidator pokaże brakujące pliki, złe typy połączeń i nieprawidłowe warto
 
 ## 9. Panel H3 Director (plan bez grzebania w JSON)
 
-Panel to plik `panel/h3_director_panel.html`. Otwierasz go w przeglądarce dwuklikiem (nie wymaga serwera ani internetu).
+Panel to plik `custom_nodes/comfyui_h3_director/web/h3_director_panel.html`. Otwierasz go w przeglądarce dwuklikiem (nie wymaga serwera ani internetu).
 
 **Co robisz w panelu**
 1. Wpisz długość utworu (np. `248.76`).
@@ -141,8 +141,8 @@ python3 scripts/build_ui_chain.py --plan plan.json --out workflows/h3_from_plan.
 ```
 Generator bierze z planu liczbę ujęć, długości, prompty i nazwy plików. Odrzuca klatki spoza siatki 17n+5 i za dużo obrazów.
 
-**Przykład:** `panel/example_plan.json` (dwa ujęcia, bez referencji dodatkowych). Wygenerowany graf: `workflows/h3_chain_from_plan_example.json`.
+**Przykład:** `custom_nodes/comfyui_h3_director/examples/example_plan.json` (dwa ujęcia, bez referencji dodatkowych). Wygenerowany graf: `workflows/h3_chain_from_plan_example.json`.
 
-**Co panel NIE robi:** nie uruchamia ComfyUI i nie jest węzłem wewnątrz ComfyUI. To osobne narzędzie planowania. Osadzenie jako węzeł w ComfyUI wymaga instalacji wtyczki i testu w działającym ComfyUI (nie zrobione).
+**Wtyczka ComfyUI:** panel jest też węzłem `H3Director` w `custom_nodes/comfyui_h3_director/`. Instalacja i test krok po kroku: `custom_nodes/comfyui_h3_director/INSTALL_AND_TEST.md`. Stan: logika przetestowana bez ComfyUI, w ComfyUI nietestowane.
 
-**Testy:** `node panel/test_plan_core.js` (logika) oraz `node panel/test_panel_ui.js` (interfejs w Chromium, wymaga Playwright).
+**Testy:** `node custom_nodes/comfyui_h3_director/tests/test_plan_core.js` (logika) oraz `node custom_nodes/comfyui_h3_director/tests/test_panel_ui.js` (interfejs w Chromium, wymaga Playwright).

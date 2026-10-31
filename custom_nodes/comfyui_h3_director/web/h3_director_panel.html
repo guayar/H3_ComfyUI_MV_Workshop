@@ -306,7 +306,12 @@
   }
 
   function renderJSON() {
-    $("jsonOut").textContent = JSON.stringify(currentJSON(), null, 2);
+    const data = currentJSON();
+    $("jsonOut").textContent = JSON.stringify(data, null, 2);
+    // wezel ComfyUI (gdy panel jest otwarty z wezla): wysyl tylko poprawny plan
+    if (window.opener && !data.error) {
+      window.opener.postMessage({ type: "h3-plan-update", plan: JSON.stringify(data) }, "*");
+    }
   }
 
   function render() {
@@ -383,6 +388,19 @@
 
   render();
   window.__h3panel = { state, loadPlan };
+
+  // Wezel ComfyUI: wczytaj plan z wezla (gdy panel otwarty z przycisku wezla)
+  window.addEventListener("message", (ev) => {
+    if (!window.opener || ev.source !== window.opener) return;
+    if (ev.data && ev.data.type === "h3-plan-init" && ev.data.plan) {
+      try {
+        const text = String(ev.data.plan).trim();
+        if (text && text !== "{}") loadPlan(JSON.parse(text));
+        setStatus("Wczytano plan z wezla ComfyUI.");
+      } catch (e) { setStatus("Plan z wezla nie wczytany: " + e.message); }
+    }
+  });
+  if (window.opener) window.opener.postMessage({ type: "h3-plan-request" }, "*");
 })();
 </script>
 </body>

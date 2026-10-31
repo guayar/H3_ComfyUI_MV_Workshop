@@ -20,11 +20,13 @@ SUITES = [
     "test_validate_graph_offline.py",
     "test_ref_limits.py",
     "test_plan_graph.py",
+    "../custom_nodes/comfyui_h3_director/tests/test_h3_plan.py",
+    "../custom_nodes/comfyui_h3_director/tests/test_node_logic.py",
 ]
 
 
-# Testy panelu w Node (bez przegladarki): logika planu. Test UI (Playwright) jest w panel/test_panel_ui.js.
-NODE_SUITES = ["panel/test_plan_core.js"]
+# Testy panelu w Node (bez przegladarki): logika planu. Test UI (Playwright) jest w custom_nodes/comfyui_h3_director/tests/test_panel_ui.js.
+NODE_SUITES = ["custom_nodes/comfyui_h3_director/tests/test_plan_core.js"]
 
 
 def main():

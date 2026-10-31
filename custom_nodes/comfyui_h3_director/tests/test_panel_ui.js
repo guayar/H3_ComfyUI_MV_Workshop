@@ -5,7 +5,7 @@ const assert = require("assert");
 const { chromium } = require("playwright");
 
 (async () => {
-  const url = "file://" + path.join(__dirname, "h3_director_panel.html");
+  const url = "file://" + path.join(__dirname, "..", "web", "h3_director_panel.html");
   const browser = await chromium.launch();
   const page = await browser.newPage();
   const errors = [];
@@ -87,6 +87,37 @@ const { chromium } = require("playwright");
   assert.strictEqual(await page.locator("#shots tr").count(), 1);
   assert.strictEqual(await page.locator("#shots tr td.frames").innerText(), "243 kl.");
   console.log("OK 7: import planu odtwarza ujecia i klatki");
+
+  // 8. komunikacja z wezlem ComfyUI: rodzic (wezel) dostaje plan po zmianie i wysyla plan do panelu
+  const parentHtml = `<!doctype html><meta charset="utf-8"><script>
+    window.received = [];
+    window.addEventListener("message", (ev) => {
+      if (ev.data && ev.data.type === "h3-plan-request") {
+        ev.source.postMessage({ type: "h3-plan-init", plan: JSON.stringify({ version: 1, fps: 24, duration: 60,
+          shots: [{ start: 0, end: 10.1, frames: 243, prompt: "from node" }],
+          refs: { images: ["set_plate.png"], videos: [], audio: [] } }) }, "*");
+      }
+      if (ev.data && ev.data.type === "h3-plan-update") window.received.push(ev.data.plan);
+    });
+    window.open(${JSON.stringify(url)}, "panel");
+  </script>`;
+  const fs = require("fs");
+  const os = require("os");
+  const parentPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "h3p-")), "parent.html");
+  fs.writeFileSync(parentPath, parentHtml);
+  const parent = await browser.newPage();
+  await parent.goto("file://" + parentPath);
+  const popup = await parent.waitForEvent("popup");
+  await popup.waitForLoadState();
+  await popup.waitForFunction(() => document.querySelectorAll("#shots tr").length === 1, null, { timeout: 5000 });
+  assert.strictEqual(await popup.locator("#shots tr td.frames").innerText(), "243 kl.");
+  await popup.locator("#btnAddShot").click();
+  await popup.waitForTimeout(200);
+  const received = await parent.evaluate(() => window.received);
+  assert.ok(received.length >= 1, "wezel nie dostal planu z panelu");
+  const last = JSON.parse(received[received.length - 1]);
+  assert.strictEqual(last.shots.length, 2);
+  console.log("OK 8: panel wczytuje plan z wezla i wysyla zmiany do wezla");
 
   assert.deepStrictEqual(errors, [], "bledy w konsoli: " + errors.join(" | "));
   await browser.close();
