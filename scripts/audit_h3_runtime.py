@@ -31,7 +31,9 @@ REQUIRED_NODES = [
 CONTROLNET_NODES = ["ModelPatchLoader", "MiniMaxH3FunControlNetApply", "LoadVideo", "GetVideoComponents"]
 # Opcjonalne (eksperymenty, nie sa wymagane).
 OPTIONAL_NODES = ["MiniMaxH3Extender", "MMH3HybridWindowSampler", "H3HybridWindows", "H3HybridControlNet",
-                  "MiniMaxH3AddGuide"]
+                  "MiniMaxH3AddGuide", "MiniMaxH3TextEncoderLoader"]
+# [CODE kgonia/ComfyUI-MiniMaxH3TextEncoders] wezel ma wejscie text_encoder: "<katalog>: <wariant>".
+# Wariant pruned24 wymaga tego wezla, a nie zwyklego CLIPLoader.
 
 # Oczekiwane pliki [MANIFEST]: (wezel, wejscie, nazwa pliku). Nazwy pochodza z szablonu lub z listy
 # oficjalnych plikow; kazda z nich musi figurowac w liscie wyboru serwera.
@@ -136,6 +138,13 @@ def audit(url):
                 if report["status"] == "OK":
                     report["status"] = "MODEL_NOT_INSTALLED"
         report["files"].append(entry)
+
+    te = report["nodes"].get("MiniMaxH3TextEncoderLoader", {})
+    if te.get("present"):
+        opts = (te["inputs"].get("text_encoder") or {}).get("options") or []
+        report["text_encoder_options"] = opts
+        report["text_encoder_pruned24_options"] = [o for o in opts if "pruned24" in o.lower()]
+        report["notes"].append("MiniMaxH3TextEncoderLoader.text_encoder: wartosc musi byc dokladnie z listy")
 
     # ControlNet: ktory z oficjalnych kandydatow jest dostepny.
     mp = report["nodes"].get("ModelPatchLoader", {})

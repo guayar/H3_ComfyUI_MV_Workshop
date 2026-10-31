@@ -173,3 +173,15 @@ Etykiety: `[CODE]` sprawdzone w kodzie, `[AUTHOR]` deklaracja autora lub karta m
 - Zgłoszenie o cichej referencji audio: https://github.com/vizart-vj/ComfyUI-MiniMax-H3-LongMedia/issues/28 [USER REPORT, jeden przypadek, nie ogólne rozwiązanie].
 - Prompt pozytywny [AUTHOR, nie gwarantowane]: „The gardener watches the roses with relaxed closed lips; the ambient stage contains soft room tone and rustling leaves.”
 - Mitigacja, nie rozwiązana funkcja: mierz obszar ust i uruchamiaj VAD/ASR na wyjściu audio. Wybieraj kadry, w których ruch ust jest mało ważny.
+
+### 12.8 Loader tekstu kgonia [CODE, odczyt pliku `__init__.py`]
+- Jedyny węzeł: `MiniMaxH3TextEncoderLoader` (wyświetlany jako „Load MiniMax H3 Text Encoder”), wejście `text_encoder` (lista `"<katalog>: <wariant>"` z `models/text_encoders`), wyjście `CLIP`.
+- Manifesty: `minimax_h3_recovered_8b_manifest.json` (format `minimax_h3_recovered_8b_release_v1`) i `minimax_h3_pruned24_balanced_manifest.json` (format `minimax_h3_pruned24_balanced_release_v1`). Nazwy plików wag i adaptera są w manifeście, nie w kodzie.
+- `RecoveredMiniMaxTokenizer.tokenize_with_weights`: `if images or minimax_ref_items:` rzuca `ValueError`. Potwierdza, że wersja recovered nie nadaje się do Ref2VA.
+- Konsekwencja w repo: `build_ui_chain.py --text-encoder-value` i audyt `text_encoder_pruned24_options`. Wartość z listy, nie zgadywana.
+- Źródło: https://github.com/kgonia/ComfyUI-MiniMaxH3TextEncoders/blob/main/__init__.py
+
+### 12.9 Szablon Fun ControlNet [CODE szablonu, odczyt JSON z GitHuba]
+- `ModelPatchLoader` (węzeł 173): `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors`.
+- `MiniMaxH3FunControlNetApply` (węzeł 172): strength 1, start 0, end 1.
+- Sterowanie w szablonie pochodzi z podgrafu SDPose (ekstrakcja pozy), nie z Canny. Nie przenosimy tego bez decyzji.

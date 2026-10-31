@@ -194,3 +194,11 @@ Progi są propozycją do walidacji na pierwszych testach.
 4. Dopiero potem rozwijać resztę workflow.
 
 Opis każdego kroku zapisuj w `docs/` jako nową sekcję, a nie w głównym README.
+
+## Testy bez ComfyUI
+
+```bash
+python3 scripts/run_offline_tests.py
+```
+
+Pełna kolejność testów na R9700 jest w [NEXT_TESTS.md](NEXT_TESTS.md).

@@ -94,3 +94,12 @@ Gdy **nowe ujęcie jest ostrzejsze** od poprzedniego, skrypt rozmywa **całe** u
 ## 7. Pomiar, nie wrażenie
 
 Zszywanie samo nie mierzy dryfu geometrii. Do tego jest `scripts/measure_scene_drift.py` (rejestracja affine na statycznych ROI, progi prowizoryczne). Zobacz [NEXT_TESTS.md](NEXT_TESTS.md), test T4.
+
+## 8. Profil zszywania (CPU, 1344×768, 2 ujęcia po 243 klatki)
+
+Zmierzone 2026-10-31 w sesji bez GPU, `stitch(..., blur_match=True)`:
+- 474 klatki wyjściowe, **38,7 s** (82 ms na klatkę),
+- szczytowy RSS **1,38 GB** (start procesu 115 MB),
+- sigma całego ujęcia 0,35 na danych syntetycznych.
+
+Pamięć zjada bufor float32 (12,4 MB na klatkę, ok. 48 klatek naraz). Przechowywanie buforów jako uint8 zmniejszy ją ok. 4×, kosztem konwersji. Nie zrobione.

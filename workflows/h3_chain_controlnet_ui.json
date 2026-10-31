@@ -526,7 +526,8 @@
     "Node name for S&R": "LoadVideo"
    },
    "widgets_values": [
-    "control_shot_01.mp4"
+    "control_shot_01.mp4",
+    "video"
    ]
   },
   {
@@ -980,7 +981,8 @@
     "Node name for S&R": "LoadVideo"
    },
    "widgets_values": [
-    "control_shot_02.mp4"
+    "control_shot_02.mp4",
+    "video"
    ]
   },
   {
@@ -1434,7 +1436,8 @@
     "Node name for S&R": "LoadVideo"
    },
    "widgets_values": [
-    "control_shot_03.mp4"
+    "control_shot_03.mp4",
+    "video"
    ]
   },
   {

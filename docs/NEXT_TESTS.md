@@ -22,11 +22,20 @@ Nic z sekcji 1–5 nie zostało uruchomione na GPU. Testy są na CPU (numpy, Pil
 
 ## 1. Kolejność testów (najmniejsze pierwsze)
 
+### T0. Testy offline i walidacja grafu (bez ComfyUI, 1 min)
+```bash
+python3 scripts/run_offline_tests.py          # 7 zestawow, wszystkie na CPU
+python3 scripts/validate_graph_offline.py workflows/h3_chain_controlnet_ui.json --schema object_info.json
+```
+Drugi krok wymaga pliku `object_info.json`. Zapisz go raz, gdy ComfyUI dziala: `curl -s http://127.0.0.1:8188/object_info > object_info.json`. Potem walidacja działa offline.
+**Kryterium:** zero błędów `COMBO_VALUE_NOT_ALLOWED`, `TYPE_MISMATCH`, `BAD_OUTPUT_SLOT`, `MISSING_LINK`.
+
 ### T1. Audyt runtime (5 min)
 ```bash
 python3 scripts/audit_h3_runtime.py --url http://127.0.0.1:8188 --out h3_runtime_audit.json
 ```
 **Kryterium:** status `OK`. Każdy inny status ma konkretną akcję w polu `unmet`.
+Jeśli chcesz wariant pruned24 zamiast NVFP4: audyt wypisze `text_encoder_pruned24_options`. Wartość z tej listy przekaż do `build_ui_chain.py --text-encoder-value "<wartość>"`. **Nie wpisuj jej ręcznie.** Loader to `MiniMaxH3TextEncoderLoader`, a nie `CLIPLoader` [CODE kgonia].
 **Bramka:** bez `OK` nie generujemy grafu ControlNet.
 
 ### T2. Mikrotest int8 matmul (5 min, osobny proces)
@@ -52,6 +61,8 @@ python3 scripts/measure_scene_drift.py --frames-dir <folder_ujecia> \
     --rois rois.json --exclude-mask moving_mask.png --out drift_baseline.json
 ```
 Plik `rois.json` ustawiasz na klatkę referencyjną z planu (okno, kominek, poręcz, górna ściana).
+
+Jeśli scena jest w perspektywie (podłoga, ściany), użyj `--model homography`. Raport wtedy dodaje `perspective_h31_h32`. Tryb affine zostaje domyślny.
 
 **Kryteria** (PROWIZORYCZNE, [UNVERIFIED] na H3):
 

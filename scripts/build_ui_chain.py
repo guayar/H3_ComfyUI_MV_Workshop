@@ -67,15 +67,20 @@ class Graph:
 CONTROL_PATCH_FILE = "minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors"
 
 
-def build(shots, frames, controlnet=False):
+def build(shots, frames, controlnet=False, text_encoder_value=None):
     g = Graph()
     last_index = frames - 1
 
     # --- wspolne zasoby (jedno zrodlo dla wszystkich ujec) ---
     unet = g.add("UNETLoader", "Model H3 Ref2VA", [], [("MODEL", "MODEL")],
                  ["minimax_h3_ref2va_pruned_int8_convrot.safetensors", "default"], (0, 0))
-    clip = g.add("CLIPLoader", "Text encoder Qwen3-VL", [], [("CLIP", "CLIP")],
-                 ["qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "minimax", "default"], (0, 180))
+    if text_encoder_value:
+        # [CODE] wariant z kgonia/ComfyUI-MiniMaxH3TextEncoders: wartosc z listy audytu, nie zgadywac
+        clip = g.add("MiniMaxH3TextEncoderLoader", "Text encoder (MiniMax H3 loader)", [], [("CLIP", "CLIP")],
+                     [text_encoder_value], (0, 180))
+    else:
+        clip = g.add("CLIPLoader", "Text encoder Qwen3-VL", [], [("CLIP", "CLIP")],
+                     ["qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "minimax", "default"], (0, 180))
     vae_v = g.add("VAELoader", "VAE wideo H3", [], [("VAE", "VAE")],
                   ["minimax_h3_video_vae_int8_convrot.safetensors"], (0, 360))
     vae_a = g.add("VAELoader", "VAE audio H3", [], [("VAE", "VAE")],
@@ -124,7 +129,7 @@ def build(shots, frames, controlnet=False):
         if controlnet:
             # sterowanie per ujecie: wideo z folderu input/ -> klatki IMAGE -> patch na modelu
             cv = g.add("LoadVideo", f"Ujecie {i+1}: wideo sterujace", [], [("VIDEO", "VIDEO")],
-                       [f"control_shot_{i+1:02d}.mp4"], (col_x - 400, row_y + 100))
+                       [f"control_shot_{i+1:02d}.mp4", "video"], (col_x - 400, row_y + 100))
             cc = g.add("GetVideoComponents", f"Ujecie {i+1}: klatki sterujace", [("video", "VIDEO")],
                        [("images", "IMAGE")], [], (col_x - 400, row_y + 240))
             g.connect(cv, 0, cc, "video")
@@ -187,6 +192,8 @@ def main():
                         help="klatki na ujecie, musi byc 17n+5 (243 = ~10,1 s przy 24 fps)")
     parser.add_argument("--out", default="workflows/h3_chain_ui.json")
     parser.add_argument("--audit", help="raport z scripts/audit_h3_runtime.py; bez zgodnego pliku graf nie zostanie zapisany")
+    parser.add_argument("--text-encoder-value",
+                        help="wartosc text_encoder z audytu (np. '<katalog>: <wariant pruned24>'); zamiast NVFP4 CLIPLoader")
     parser.add_argument("--controlnet", action="store_true",
                         help="dodaj Fun ControlNet: na ujecie wideo input/control_shot_NN.mp4 (patrz scripts/make_control.py)")
     args = parser.parse_args()
@@ -196,7 +203,7 @@ def main():
         check_control_file(args.audit)
     elif args.controlnet:
         print("UWAGA: brak --audit; nazwa pliku ControlNet NIEZWERYFIKOWANA w tym srodowisku")
-    wf = build(args.shots, args.frames, args.controlnet)
+    wf = build(args.shots, args.frames, args.controlnet, args.text_encoder_value)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(wf, fh, ensure_ascii=False, indent=1)
     print(f"zapisano {args.out}: {len(wf['nodes'])} wezlow, {len(wf['links'])} polaczen")

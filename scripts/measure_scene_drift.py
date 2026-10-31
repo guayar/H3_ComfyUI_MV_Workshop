@@ -152,6 +152,81 @@ def register_affine(T_full, I_full, Tmask_full, origin=(0.0, 0.0), levels=2):
     return theta, corr, npx
 
 
+# ---------- homografia (perspektywa) ----------
+# [CODE] 8 parametrow (h33 = 1), inicjalizacja z affine. Potrzebna, gdy podloga/sciany sa w perspektywie.
+# Zmiana perspektywy (h31, h32) jest raportowana osobno; metryki skali/przesuniecia sa liczone
+# z linearyzacji homografii w srodku ROI, zeby byly porownywalne z trybem affine.
+
+def affine_to_h(theta):
+    a11, a12, a21, a22, tx, ty = theta
+    return np.array([[a11, a12, tx], [a21, a22, ty], [0.0, 0.0, 1.0]], dtype=np.float64)
+
+
+def _register_homography(T, I, Tmask, H0, origin, iters=60, eps=1e-7):
+    h, w = T.shape
+    Y, X = np.mgrid[0:h, 0:w].astype(np.float64)
+    X = X + origin[0]
+    Y = Y + origin[1]
+    gxI, gyI = gradients(I)
+    H = H0 / H0[2, 2]
+    p = np.array([H[0, 0], H[0, 1], H[0, 2], H[1, 0], H[1, 1], H[1, 2], H[2, 0], H[2, 1]], dtype=np.float64)
+    for _ in range(iters):
+        h11, h12, h13, h21, h22, h23, h31, h32 = p
+        D = h31 * X + h32 * Y + 1.0
+        if np.any(np.abs(D[Tmask > 0.5]) < 1e-6):
+            return H, False
+        qx = (h11 * X + h12 * Y + h13) / D
+        qy = (h21 * X + h22 * Y + h23) / D
+        Iw, valid = bilinear(I, qx, qy)
+        gxw, _ = bilinear(gxI, qx, qy)
+        gyw, _ = bilinear(gyI, qx, qy)
+        m = valid & (Tmask > 0.5)
+        if m.sum() < 50:
+            return H, False
+        t_vals, i_vals = T[m], Iw[m]
+        tn = (t_vals - t_vals.mean()) / (t_vals.std() + 1e-9)
+        s_i = i_vals.std() + 1e-9
+        inn = (i_vals - i_vals.mean()) / s_i
+        e = inn - tn
+        scale_r = 1.4826 * np.median(np.abs(e - np.median(e))) + 1e-6
+        wgt = 1.0 / (1.0 + (e / (2.0 * scale_r)) ** 2)
+        jx, jy = gxw[m] / s_i, gyw[m] / s_i
+        Xm, Ym, Dm, qxm, qym = X[m], Y[m], D[m], qx[m], qy[m]
+        cols = [
+            jx * Xm / Dm, jx * Ym / Dm, jx / Dm,
+            jy * Xm / Dm, jy * Ym / Dm, jy / Dm,
+            -(jx * Xm * qxm + jy * Xm * qym) / Dm,
+            -(jx * Ym * qxm + jy * Ym * qym) / Dm,
+        ]
+        J = np.stack(cols, axis=1)
+        JW = J * wgt[:, None]
+        Hm = J.T @ JW + 1e-9 * np.eye(8)
+        g = JW.T @ e
+        try:
+            dp = -np.linalg.solve(Hm, g)
+        except np.linalg.LinAlgError:
+            return H, False
+        p = p + dp
+        if np.linalg.norm(dp) < eps:
+            break
+    H = np.array([[p[0], p[1], p[2]], [p[3], p[4], p[5]], [p[6], p[7], 1.0]], dtype=np.float64)
+    return H, True
+
+
+def homography_to_affine_at(H, cx, cy):
+    """Linearyzacja homografii w punkcie (cx, cy) -> affine [a11,a12,a21,a22,tx,ty]."""
+    D = H[2, 0] * cx + H[2, 1] * cy + 1.0
+    qx = (H[0, 0] * cx + H[0, 1] * cy + H[0, 2]) / D
+    qy = (H[1, 0] * cx + H[1, 1] * cy + H[1, 2]) / D
+    a11 = (H[0, 0] - H[2, 0] * qx) / D
+    a12 = (H[0, 1] - H[2, 1] * qx) / D
+    a21 = (H[1, 0] - H[2, 0] * qy) / D
+    a22 = (H[1, 1] - H[2, 1] * qy) / D
+    tx = qx - a11 * cx - a12 * cy
+    ty = qy - a21 * cx - a22 * cy
+    return np.array([a11, a12, a21, a22, tx, ty], dtype=np.float64)
+
+
 # ---------- metryki ----------
 def theta_metrics(theta):
     a11, a12, a21, a22, tx, ty = theta
@@ -173,7 +248,7 @@ def rg_ratio(rgb_roi):
     return r / g
 
 
-def measure_frame(ref_rgb, ref_luma, cur_rgb, cur_luma, rois, excl_mask):
+def measure_frame(ref_rgb, ref_luma, cur_rgb, cur_luma, rois, excl_mask, model="affine"):
     """Zwraca slownik metryk dla jednej klatki wzgledem referencji."""
     per_roi = []
     if excl_mask is not None and excl_mask.ndim == 3:
@@ -185,7 +260,15 @@ def measure_frame(ref_rgb, ref_luma, cur_rgb, cur_luma, rois, excl_mask):
         if excl_mask is not None:
             Tm = (excl_mask[y:y + h, x:x + w] < 0.5).astype(np.float32)
         theta_full, corr, npx = register_affine(T, cur_luma, Tm, origin=(float(x), float(y)))
+        persp = None
+        if model == "homography":
+            H, ok = _register_homography(T, cur_luma, Tm, affine_to_h(theta_full), (float(x), float(y)))
+            if ok:
+                persp = [round(float(H[2, 0]), 9), round(float(H[2, 1]), 9)]
+                theta_full = homography_to_affine_at(H, x + w / 2.0, y + h / 2.0)
         m = theta_metrics(theta_full)
+        if persp is not None:
+            m["perspective_h31_h32"] = persp
         # ostrosc i R/G po rejestracji (probkowanie ROI z klatki bieżącej)
         Y, X = np.mgrid[y:y + h, x:x + w].astype(np.float64)
         qx = theta_full[0] * X + theta_full[1] * Y + theta_full[4]
@@ -231,7 +314,7 @@ def judge(metrics, expected):
     return {"drift": drift, "shift_px": round(shift, 3), "flags": flags}
 
 
-def run(frames_dir, rois, excl_mask_path, expected_map, max_frames, ref_index=0):
+def run(frames_dir, rois, excl_mask_path, expected_map, max_frames, ref_index=0, model="affine"):
     files = sorted(glob.glob(os.path.join(frames_dir, "*.png")))[:max_frames]
     if not files:
         sys.exit(f"brak klatek w {frames_dir}")
@@ -243,7 +326,7 @@ def run(frames_dir, rois, excl_mask_path, expected_map, max_frames, ref_index=0)
     out = []
     for idx, f in enumerate(files):
         cur = load_rgb(f)
-        met = measure_frame(ref_rgb, ref_l, cur, luma(cur), rois, excl)
+        met = measure_frame(ref_rgb, ref_l, cur, luma(cur), rois, excl, model=model)
         exp = expected_map.get(idx) if expected_map else None
         out.append({"frame": idx, "file": os.path.basename(f), **met, **judge(met, exp)})
     return out
@@ -270,13 +353,15 @@ def main():
     ap.add_argument("--exclude-mask", help="PNG: biale = ruchome elementy, pomijane w szablonie")
     ap.add_argument("--expected", help="JSON: {\"<idx>\": {\"scale\":..,\"rot_deg\":..,\"tx\":..,\"ty\":..}} (np. dolly)")
     ap.add_argument("--max-frames", type=int, default=10 ** 9)
+    ap.add_argument("--model", choices=["affine", "homography"], default="affine",
+                    help="affine: 6 parametrow; homography: 8 (dodaje perspektywe h31, h32)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     rois = json.load(open(args.rois, encoding="utf-8"))
     expected = None
     if args.expected:
         expected = {int(k): v for k, v in json.load(open(args.expected, encoding="utf-8")).items()}
-    rows = run(args.frames_dir, rois, args.exclude_mask, expected, args.max_frames)
+    rows = run(args.frames_dir, rois, args.exclude_mask, expected, args.max_frames, model=args.model)
     report = {"summary": summarise(rows), "frames": rows,
               "note": "[CODE] pomiar numpy-ECC; progi PROWIZORYCZNE, skalibrowac na planie"}
     with open(args.out, "w", encoding="utf-8") as fh:
