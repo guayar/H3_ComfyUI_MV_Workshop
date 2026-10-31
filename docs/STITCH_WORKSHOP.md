@@ -77,3 +77,20 @@ Problem: `qwen3vl_32b_minimax_h3_nvfp4_awq` używa NVFP4. Źródła nie są zgod
 2. **Test na prawdziwych klatkach H3** z jednego ujęcia i dwóch sąsiadujących.
 3. **Wyostrzanie w obie strony:** obecnie tylko wzmacnia miękkie ujęcie. Jeśli nowe jest ostrzejsze, trzeba je rozmyć (nie zrobione).
 4. **Walidacja na R9700:** uruchomienie tego skryptu jest czysto CPU (numpy, Pillow), więc nie zależy od ROCm.
+
+---
+
+## 6. Rozmycie całego ujęcia (`--blur-match`, P4)
+
+Gdy **nowe ujęcie jest ostrzejsze** od poprzedniego, skrypt rozmywa **całe** ujęcie jedną sigmą (rozmycie Gaussa). Sigmę wyznacza binarny podział tak, żeby wariancja Laplace'a pasa górnego trafiła w wartość poprzedniego ujęcia. Sigma jest taka sama dla każdej klatki ujęcia, więc nie ma migotania.
+
+- Działa tylko w jedną stronę (rozmywa ostrzejsze). Wyostrzanie miękkiego ujęcia (`--sharpen`) działa osobno i zanika w oknie `--match-window`.
+- Nie dotyka ruchomego pierwszego planu poza górnym pasem. Test 5 w `scripts/test_sharpness_blur.py` to sprawdza.
+- Nie przywraca utraconych detali. Wyrównuje tylko ostrość.
+- Raport zawiera `blur_sigma_whole_shot`, `lapvar_tail_ref` i `lapvar_head_before` dla każdego szwu.
+
+**Status:** testy syntetyczne przechodzą (stosunek ostrości 1697 → 0,98 przy sigmie 1,59). **Nie testowano na klatkach H3.**
+
+## 7. Pomiar, nie wrażenie
+
+Zszywanie samo nie mierzy dryfu geometrii. Do tego jest `scripts/measure_scene_drift.py` (rejestracja affine na statycznych ROI, progi prowizoryczne). Zobacz [NEXT_TESTS.md](NEXT_TESTS.md), test T4.

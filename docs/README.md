@@ -59,12 +59,16 @@ Sterowanie geometrią zestawu: krawędzie z planu lokacji trzymają perspektywę
    ```
    Powtórz dla każdego ujęcia (`control_shot_02.mp4` itd.).
 2. Wczytaj `workflows/h3_chain_controlnet_ui.json` w ComfyUI.
-3. W węźle **Model patch: Fun ControlNet** ustaw plik z folderu `models/model_patches`. **Nazwa w grafie jest niezweryfikowana** (`minimax_h3_fun_controlnet_union.safetensors`), wybierz właściwą z listy.
+3. Uruchom audyt (serwer ComfyUI musi działać): `python3 scripts/audit_h3_runtime.py --out h3_runtime_audit.json`. Generator grafu z opcją `--audit` **odmówi zapisu**, jeśli plik ControlNet nie figuruje w `ModelPatchLoader.name`:
+   ```bash
+   python3 scripts/build_ui_chain.py --shots 3 --frames 124 --controlnet --audit h3_runtime_audit.json --out workflows/h3_chain_controlnet_ui.json
+   ```
+   Domyślna nazwa to kandydat `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors` [lista oficjalna z briefu, nie pobrana tutaj]. Nie podstawiaj innej bez audytu.
 4. Siła ControlNet: `strength` (domyślnie 1.0), `start_percent` 0.0, `end_percent` 1.0. Wartości nie są zmierzone.
 
 **Zweryfikowane w kodzie:** `MiniMaxH3FunControlNetApply` (wejścia `model`, `model_patch`, `vae`, `strength`, `start_percent`, `end_percent`, `control_video`, `mask`, `source_video`; wyjście `MODEL`), `ModelPatchLoader` (wejście `name` z `models/model_patches`, wyjście `MODEL_PATCH`), `LoadVideo` i `GetVideoComponents` (wyjście `images`).
 
-**Niezweryfikowane:** nazwa pliku ControlNet, czy wideo sterujące o 243 klatkach jest w pełni wykorzystane, oraz czy krawędzie z `make_control.py` (uproszczony Canny) wystarczą. Krawędzie są liczone w numpy, bez histerezy.
+**Niezweryfikowane:** nazwa pliku ControlNet na tej maszynie, zachowanie H3 przy sterowaniu i jakość krawędzi z `make_control.py` (uproszczony Canny w numpy). Pełna kolejność testów: [NEXT_TESTS.md](NEXT_TESTS.md).
 
 ## 2. Instalacja
 

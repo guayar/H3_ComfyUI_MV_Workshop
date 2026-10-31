@@ -63,7 +63,8 @@ class Graph:
                 "nodes": self.nodes, "links": self.links, "groups": [], "config": {}, "extra": {}, "version": 0.4}
 
 
-CONTROL_PATCH_FILE = "minimax_h3_fun_controlnet_union.safetensors"  # UNVERIFIED: nazwe sprawdz w folderze model_patches
+# [OFFICIAL LIST, podane w briefie; nie pobrane w tej sesji] kandydat v1 INT8. Wymaga audytu runtime.
+CONTROL_PATCH_FILE = "minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors"
 
 
 def build(shots, frames, controlnet=False):
@@ -90,7 +91,7 @@ def build(shots, frames, controlnet=False):
 
     mp_loader = None
     if controlnet:
-        mp_loader = g.add("ModelPatchLoader", "Model patch: Fun ControlNet (SPRAWDZ NAZWE PLIKU)", [],
+        mp_loader = g.add("ModelPatchLoader", "Model patch: Fun ControlNet (zweryfikuj audytem)", [],
                           [("MODEL_PATCH", "MODEL_PATCH")], [CONTROL_PATCH_FILE], (0, 1080))
 
     prev_last_frame = None
@@ -166,17 +167,35 @@ def build(shots, frames, controlnet=False):
     return g.to_ui()
 
 
+def check_control_file(audit_path):
+    """Fail-fast: nie zapisuj grafu ControlNet, jesli raport audytu nie potwierdza pliku."""
+    with open(audit_path, encoding="utf-8") as fh:
+        rep = json.load(fh)
+    if rep.get("status") == "SERVER_UNREACHABLE":
+        raise SystemExit("SERVER_UNREACHABLE: audyt nie potwierdza pliku (serwer nieosiagalny). Uruchom ComfyUI i powtorz audyt.")
+    entries = [f for f in rep.get("files", []) if f.get("expected") == CONTROL_PATCH_FILE]
+    if not entries or entries[0].get("status") != "OK":
+        raise SystemExit(f"MODEL_NOT_INSTALLED: {CONTROL_PATCH_FILE} nie figuruje w ModelPatchLoader.name. "
+                         "Nie podstawiam innej nazwy; zainstaluj plik albo wybierz zgodny z listy audytu.")
+    print(f"audyt potwierdza: {CONTROL_PATCH_FILE}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--shots", type=int, default=3, help="liczba ujec w lancuchu (domyslnie 3)")
     parser.add_argument("--frames", type=int, default=243,
                         help="klatki na ujecie, musi byc 17n+5 (243 = ~10,1 s przy 24 fps)")
     parser.add_argument("--out", default="workflows/h3_chain_ui.json")
+    parser.add_argument("--audit", help="raport z scripts/audit_h3_runtime.py; bez zgodnego pliku graf nie zostanie zapisany")
     parser.add_argument("--controlnet", action="store_true",
                         help="dodaj Fun ControlNet: na ujecie wideo input/control_shot_NN.mp4 (patrz scripts/make_control.py)")
     args = parser.parse_args()
     if args.frames % 17 != 5:
         parser.error("--frames musi byc w siatce 17n+5, np. 124, 192, 243")
+    if args.controlnet and args.audit:
+        check_control_file(args.audit)
+    elif args.controlnet:
+        print("UWAGA: brak --audit; nazwa pliku ControlNet NIEZWERYFIKOWANA w tym srodowisku")
     wf = build(args.shots, args.frames, args.controlnet)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(wf, fh, ensure_ascii=False, indent=1)

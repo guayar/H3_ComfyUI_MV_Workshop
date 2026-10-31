@@ -328,7 +328,7 @@
    "flags": {},
    "order": 9,
    "mode": 0,
-   "title": "Model patch: Fun ControlNet (SPRAWDZ NAZWE PLIKU)",
+   "title": "Model patch: Fun ControlNet (zweryfikuj audytem)",
    "inputs": [],
    "outputs": [
     {
@@ -346,7 +346,7 @@
     "Node name for S&R": "ModelPatchLoader"
    },
    "widgets_values": [
-    "minimax_h3_fun_controlnet_union.safetensors"
+    "minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors"
    ]
   },
   {

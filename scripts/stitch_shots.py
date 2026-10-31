@@ -20,6 +20,7 @@ Pamiec: trzymane sa tylko klatki potrzebne do przejsc (max(fade, match-window)),
 import argparse
 import glob
 import json
+import math
 import os
 import subprocess
 import sys
@@ -126,6 +127,56 @@ def unsharp(rgb, amount):
     return np.clip(rgb + amount * (rgb - box_blur(rgb)), 0.0, 1.0)
 
 
+# ---------- rozmycie calego ujecia (P4) ----------
+# [CODE] sigma jest jedna dla CALEGO ujecia; nie zmienia sie klatka po klatce (brak migotania).
+# Zastepuje wyostrzanie per klatka w trybie blur_match. Nie odtwarza utraconych detali, tylko wyrownuje ostrosc.
+
+def gaussian_blur(rgb, sigma):
+    """Rozmycie Gaussa rozdzielne (dwa przebiegi 1D), brzegi z replikacja."""
+    if sigma <= 0:
+        return rgb
+    radius = max(1, int(math.ceil(3 * sigma)))
+    x = np.arange(-radius, radius + 1, dtype=np.float32)
+    k = np.exp(-(x * x) / (2 * sigma * sigma))
+    k /= k.sum()
+    out = rgb
+    for axis in (0, 1):
+        pad = [(0, 0)] * 3
+        pad[axis] = (radius, radius)
+        p = np.pad(out, pad, mode="edge")
+        acc = np.zeros_like(out)
+        for j, kj in enumerate(k):
+            sl = [slice(None)] * 3
+            sl[axis] = slice(j, j + out.shape[axis])
+            acc += kj * p[tuple(sl)]
+        out = acc
+    return out
+
+
+def top_band_lapvar(rgb, band):
+    """Wariancja Laplace'a jasnosci w gornym pasie kadru (ta sama metryka co w raporcie szwu)."""
+    return laplacian_var(srgb_to_lab(rgb)[..., 0] / 100.0, band)
+
+
+def find_blur_sigma(sample_rgb, target_var, band, max_sigma=4.0, iters=30):
+    """Najmniejsze sigma, ktore sprowadza wariancje Laplace'a gornego pasa do celu.
+
+    Zwraca 0, gdy probka jest juz nie ostrzejsza niz cel. Funkcja jest malejaca w sigma,
+    wiec binarny podzial jest poprawny. Zmierzona wariancja po rozmyciu jest zwracana do raportu.
+    """
+    if top_band_lapvar(sample_rgb, band) <= target_var:
+        return 0.0, top_band_lapvar(sample_rgb, band)
+    lo, hi = 0.0, max_sigma
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        if top_band_lapvar(gaussian_blur(sample_rgb, mid), band) > target_var:
+            lo = mid
+        else:
+            hi = mid
+    sigma = 0.5 * (lo + hi)
+    return sigma, top_band_lapvar(gaussian_blur(sample_rgb, sigma), band)
+
+
 # ---------- korekta ujecia ----------
 def color_correct(rgb, mu_t, sd_t, mu_s, sd_s, weight):
     """Przeniesie statystyk Lab: target (mu_t, sd_t) z szwu A -> klatka B. weight: 0..1 (1 = pelna korekta)."""
@@ -137,7 +188,7 @@ def color_correct(rgb, mu_t, sd_t, mu_s, sd_s, weight):
 
 
 # ---------- glowna logika ----------
-def stitch(shot_dirs, out_dir, fade, match_window, band, sharpen, report_path):
+def stitch(shot_dirs, out_dir, fade, match_window, band, sharpen, report_path, blur_match=False):
     """Zszywa ujecia. Kolejnosc zapisu: [reszta ogona A] [dissolve A->B] [cialo B] ... [ogon ostatniego]."""
     os.makedirs(out_dir, exist_ok=True)
     keep = max(fade, match_window, 1)
@@ -158,17 +209,26 @@ def stitch(shot_dirs, out_dir, fade, match_window, band, sharpen, report_path):
         if n < keep + fade + 1:
             sys.exit(f"Ujecie {folder} ma {n} klatek; potrzeba co najmniej {keep + fade + 1}")
 
+        shot_sigma = 0.0
         if k == 0:
             body_start = 0
         else:
             head = [load_frame(f) for f in files[:keep]]
+            head_raw = head  # metryka "przed" zawsze na surowych klatkach
+            # rozmycie calego ujecia, gdy nowe ujecie jest ostrzejsze (P4, tryb blur_match)
+            shot_sigma = 0.0
+            sharp_before = top_band_lapvar(head[0], band)
+            tail_ref = top_band_lapvar(tail[-1], band)
+            if blur_match and sharp_before > tail_ref * 1.05:
+                shot_sigma, _ = find_blur_sigma(head[0], tail_ref, band)
+                head = [gaussian_blur(f, shot_sigma) for f in head]
             # statystyki Lab: A = ogon poprzedniego ujecia, B = poczatek biezacego
             # statystyki z 3 klatek przy samym szwie: srednia z dluzszego okna miesza dryf ujecia
             # i daje skok na pojedynczej klatce (sprawdzone w test_stitch.py)
             sn = min(3, keep)
             mu_a, sd_a = lab_stats([srgb_to_lab(f) for f in tail[-sn:]])
             mu_b, sd_b = lab_stats([srgb_to_lab(f) for f in head[:sn]])
-            metrics_before = join_metrics(tail, head, band)
+            metrics_before = join_metrics(tail, head_raw, band)
 
             # ostrzenie, gdy nowe ujecie jest miensze (stosunek ostrosci head/tail < 1)
             ratio = metrics_before["sharp_ratio_head_over_tail"]
@@ -190,12 +250,17 @@ def stitch(shot_dirs, out_dir, fade, match_window, band, sharpen, report_path):
 
             after = join_metrics([tail[-1]], [corrected_head[0]], band)
             report["joins"].append({"shot": k, "before": metrics_before, "after": after,
-                                    "sharpen_amount": round(sharp_amt, 3)})
+                                    "sharpen_amount": round(sharp_amt, 3),
+                                    "blur_sigma_whole_shot": round(shot_sigma, 3),
+                                    "lapvar_tail_ref": round(tail_ref, 6),
+                                    "lapvar_head_before": round(sharp_before, 6)})
             body_start = fade
 
         # 3) cialo ujecia: bez ostatnich `keep` klatek (zostana na nastepny szew)
         for idx in range(body_start, n - keep):
             img = load_frame(files[idx])
+            if k > 0 and shot_sigma > 0:
+                img = gaussian_blur(img, shot_sigma)
             if k > 0 and idx < match_window:
                 w = float(ramp_match[idx])
                 if w > 0:
@@ -203,6 +268,10 @@ def stitch(shot_dirs, out_dir, fade, match_window, band, sharpen, report_path):
             write(img)
 
         tail = [load_frame(f) for f in files[n - keep:]]
+        if k > 0 and shot_sigma > 0:
+            tail = [gaussian_blur(f, shot_sigma) for f in tail]
+        shot_sigma = 0.0  # dla ujecia k+1 wyznaczana od nowa
+
 
     # 4) ogon ostatniego ujecia
     for img in tail:
@@ -257,6 +326,8 @@ def main():
     p.add_argument("--band", type=float, default=0.15, help="gorny pas kadru do pomiaru ostrosci (domyslnie 0.15)")
     p.add_argument("--sharpen", action="store_true", help="wyostrz nowe ujecie, gdy jest miensze od poprzedniego")
     p.add_argument("--deflicker", type=int, default=0, help="okno wygladzania jasnosci po calym ciagu (0 = wylaczone)")
+    p.add_argument("--blur-match", action="store_true",
+                   help="gdy nowe ujecie jest ostrzejsze, rozmyj CALE ujecie (jedna sigma, binarny podzial)")
     p.add_argument("--encode", metavar="MP4", help="zakoduj wynik do MP4 (BT.709)")
     p.add_argument("--fps", type=int, default=24)
     args = p.parse_args()
@@ -264,7 +335,7 @@ def main():
     report_path = os.path.join(args.out_dir, "stitch_report.json")
     os.makedirs(args.out_dir, exist_ok=True)
     n, report = stitch(args.shots, args.out_dir, args.fade, args.match_window, args.band,
-                       args.sharpen, report_path)
+                       args.sharpen, report_path, blur_match=args.blur_match)
     if args.deflicker:
         report["deflicker"] = deflicker(args.out_dir, args.deflicker)
         with open(report_path, "w", encoding="utf-8") as fh:

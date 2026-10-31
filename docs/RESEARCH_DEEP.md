@@ -114,3 +114,61 @@ Formuła długości z szablonu (`ComfyMathExpression`): dla czasu `a` w sekundac
 - **[NIEZWERYFIKOWANE] Efekty fizyczne** (klapy podłogi): H3 może nie zinterpretować kontroli Canny/depth jako dokładnej fizyki klap. Wymaga testu.
 
 **Zasady z addendum, które obowiązują:** nie instalować ani nie aktualizować wtyczek bez przeglądu; porównać `/object_info` z kodem przed każdą zmianą; nie zakładać, że wersja z `master` jest tą lokalną; prompty pozytywne, jeden nazwany ruch kamery lub zablokowany statyw.
+
+
+## 12. Addendum (handoff, 2026-10-31): ustalenia z briefu i ich status
+
+Etykiety: `[CODE]` sprawdzone w kodzie, `[AUTHOR]` deklaracja autora lub karta modelu, `[USER REPORT]` zgłoszenie, `[UNVERIFIED]` nieprzetestowane na tej maszynie. Źródła nie były pobierane ponownie w tej sesji (huggingface.co i docs.comfy.org są zablokowane), więc poniższe wpisy pochodzą z briefu.
+
+### 12.1 Natywny Ref2VA [CODE]
+- Źródło: https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_extras/nodes_minimax_h3.py
+- `MiniMaxH3ReferenceToVideo`: wyjście 0 = `positive` (CONDITIONING), wyjście 1 = LATENT.
+- `ref_image_size` (`match` | `max`, domyślnie `match`). `max` zachowuje więcej tokenów referencji i może być wielokrotnie wolniejszy.
+- Do 9 obrazów, 3 wideo, 3 audio. Bez VAE wideo referencje obrazów działają tylko na enkoder tekstu.
+- Klatki `17n+5` przy 24 fps. `MiniMaxH3AddGuide` przyjmuje `frame_idx` względem pełnej osi czasu.
+- **Schemat zainstalowanej wersji może się różnić od upstream.** Sprawdź `/object_info` przed każdym grafem (`scripts/audit_h3_runtime.py`).
+
+### 12.2 Fun ControlNet: plik i węzeł
+- Lista oficjalnych plików: https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/model_patches [AUTHOR, nie pobrane tutaj]
+- Przykład oficjalny: https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_fun_controlnet_union.json [AUTHOR]
+- **Kandydat do `ModelPatchLoader.name`:** `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors`. Pozostali: `..._pruned_bf16`, `union_2.0_pruned_int8_convrot`, `union_2.0_pruned_bf16`. Każdy wymaga potwierdzenia audytem; nie podstawiać nazwy bez potwierdzenia.
+- Węzeł `MiniMaxH3FunControlNetApply` [CODE]: `model`, `model_patch`, `vae`, `strength` (1.0, 0–10), `start_percent` (0), `end_percent` (1), `control_video` (IMAGE, opcj.), `mask` (MASK, >0.5 = regeneruj), `source_video` (IMAGE, opcj.). Wyjście MODEL.
+- Klatki sterujące i maski są indeksowane po klatkach generacji; krótsze są powtarzane ostatnią klatką [CODE].
+- **Statyczna krawędź Canny nie steruje podnoszeniem klap.** Do tego potrzebne jest sterowanie klatka po klatce (`scripts/make_control.py --flap-demo`) [CODE w naszym skrypcie; zachowanie H3 UNVERIFIED].
+- Demo inpaint [AUTHOR]: https://huggingface.co/alibaba-pai/MiniMax-H3-Fun-Controlnet-Union-2.0 (`asset/inpaint_mask.mp4`). Istnienie demo nie dowodzi fizyki ani zgodności z AMD.
+- Osobna implementacja `H3FunControlApply` (https://github.com/wyzborrero/ComfyUI-H3-FunControl) ma inny zakres siły i inne wymagania checkpointu. **Nie mieszać nazw klas.** Najpierw natywna.
+
+### 12.3 Kodowanie tekstu, ROCm [CODE + AUTHOR]
+- Wagi: https://huggingface.co/SearchingMan/MiniMax-H3-Text-Encoders [AUTHOR]
+- Loader: https://github.com/kgonia/ComfyUI-MiniMaxH3TextEncoders [CODE]. Węzeł `MiniMaxH3TextEncoderLoader` zwraca CLIP i stosuje logikę pruned + adapter. **Zwykła podmiana nazwy pliku w `CLIPLoader` nie jest równoważna.**
+- Kandydat: pakiet `pruned24_balanced` (INT8 ConvRot) z manifestem i adapterem ARA. Nie wrzucać samego pliku safetensors do domyślnego loadera.
+- **Nie używać `recovered_8b_int8_convrot` dla Ref2VA.** Tokenizer rzuca wyjątek, gdy podano `images` lub `minimax_ref_items`, bo jest tylko T2V. Patrz `RecoveredMiniMaxTokenizer.tokenize_with_weights` w `__init__.py` tego loadera [CODE].
+- Podobieństwo kondycjonowania i VRAM od autora to [AUTHOR], nie pomiar na R9700.
+- Zanim zastąpisz działający enkoder NVFP4, ustal, czy NVFP4 **faktycznie** zawodzi lokalnie. Jeśli działa, zachowaj go jako baseline. Nowy enkoder testuj z tym samym seedem, referencjami, modelem, samplerem i promptem.
+
+### 12.4 `torch._int_mm` na gfx1201 [UNVERIFIED]
+- Nie przenosić wniosków z gfx1100: https://github.com/Comfy-Org/ComfyUI/issues/15314
+- `ROCm/aiter#6066` dotyczy głównie operatorów multi-GPU H3, nie dowodzi działania ani awarii INT8 na jednej karcie: https://github.com/ROCm/aiter/pull/6066
+- Patch dla R9700 jest pisany pod Windows i nie dowodzi poprawności na Linux ROCm.
+- Test: `scripts/int8_mm_microtest.py` (osobny proces, porównanie z int32 na CPU, zapis wersji i wyjątków). **Nie uruchomiony:** brak torch w tym środowisku.
+
+### 12.5 H3 Extender [CODE], gałąź opcjonalna
+- Źródło: https://github.com/tritant/ComfyUI_MiniMax_H3_Extender/blob/main/extender.py. Wersja `main` to 3.0.14; lokalnie podawano 3.0.12. Porównaj przed użyciem.
+- Klasa `MiniMaxH3Extender`, `FUNCTION=extend`. Domyślne: `run_mode=clip_by_clip`, `width=896`, `height=576`, `steps=4`, `sampler_name=euler`, `scheduler=simple`, `context_length="22"`, `motion_context=True`, `generation_mode=ref2va`, `ref_image_size=match`, `refine_enabled=False`, `refine_denoise=0.30`.
+- `continue_existing_video` musi być natywnym VIDEO (np. Load Video). Jego ogon jest dekodowany i ponownie kodowany VAE.
+- Węzeł przyjmuje łatany MODEL, więc typ jest zgodny z natywnym Fun ControlNet. Wykonanie i poprawa dryfu: UNVERIFIED.
+- **Nie czyni go domyślną ścieżką.**
+
+### 12.6 HybridWindows [CODE], benchmark eksperymentalny
+- https://github.com/Jalen-Brunson/ComfyUI-HybridWindows (`nodes.py`, `sampler.py`, `control.py`).
+- Klasy: `H3HybridWindows`, `MMH3HybridWindowSampler`, `H3HybridControlNet`.
+- Sekwencyjne rozgrzewanie okien, potem wspólne okna nakładające się na jednej osi latentów. Nie jest to zwykłe crossfade po dekodowaniu.
+- `sequential_steps` domyślnie 6. Przy 8 krokach: 6 sekwencyjnych + 2 wspólne. `overlap_pin` domyślnie `full`, dostępny `tail_custom`.
+- Wymaga MMH3Tools. Nieprzetestowane na R9700. **Poza główną ścieżką grafu.**
+
+### 12.7 Audio i usta [CODE / USER REPORT]
+- H3 sprzęga wideo i audio. Usunięcie ścieżki z MP4 nie zatrzymuje ruchu ust.
+- Brak natywnego `mute_lips` ani `disable_audio` w znalezionym kodzie [CODE].
+- Zgłoszenie o cichej referencji audio: https://github.com/vizart-vj/ComfyUI-MiniMax-H3-LongMedia/issues/28 [USER REPORT, jeden przypadek, nie ogólne rozwiązanie].
+- Prompt pozytywny [AUTHOR, nie gwarantowane]: „The gardener watches the roses with relaxed closed lips; the ambient stage contains soft room tone and rustling leaves.”
+- Mitigacja, nie rozwiązana funkcja: mierz obszar ust i uruchamiaj VAD/ASR na wyjściu audio. Wybieraj kadry, w których ruch ust jest mało ważny.
