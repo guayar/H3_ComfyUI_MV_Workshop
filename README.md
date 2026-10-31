@@ -10,6 +10,7 @@ Każdy projekt dostarcza własne referencje postaci i lokacji, plan ujęć oraz 
 
 ## Dokumentacja
 
+- 🤝 **[Handoff: użycie i testy (dla Claude i dla Ciebie) – docs/HANDOFF_FOR_CLAUDE.md](docs/HANDOFF_FOR_CLAUDE.md)**
 - 📖 **[Instrukcja użycia i szczegóły – docs/README.md](docs/README.md)** – wymagania, instalacja, struktura projektu, jak prowadzić projekt krok po kroku.
 - 🔬 **[Głęboki research – docs/RESEARCH_DEEP.md](docs/RESEARCH_DEEP.md)** – rozwiązania dla kamery, spójności, audio i ROCm, z oznaczeniem, co jest zweryfikowane.
 - 🔬 **[Wstępny research – docs/RESEARCH_PARTIAL.md](docs/RESEARCH_PARTIAL.md)** – pierwsza runda.
