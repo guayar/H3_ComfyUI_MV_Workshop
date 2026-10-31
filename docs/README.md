@@ -90,10 +90,21 @@ python3 scripts/queue_shot.py workflows/h3_r2v_shot_api.json \
     --set 7.length=243 --set 14.filename_prefix=h3/shot_010
 ```
 
-**Przy pierwszym uruchomieniu sprawdź (oznaczone jako niezweryfikowane):**
-1. Kolejność wyjść węzła 7: slot 0 jako warunkowanie i slot 1 jako latent. Jeśli kolejność jest zła, ComfyUI zgłosi błąd typu.
-2. Parametr `match` z szablonu nie jest w grafie. Jeśli model go wymaga, dodaj go po ustaleniu nazwy.
-3. Wyjście bez szumu i mozaiki (gfx1201, patrz RESEARCH_DEEP §7).
+**Zweryfikowane w kodzie natywnym ComfyUI** (`comfy_extras/nodes_minimax_h3.py`):
+- Wyjścia węzła 7: slot 0 = `positive` (warunkowanie), slot 1 = `LATENT`. Graf jest zgodny.
+- Parametr `match` z szablonu to `ref_image_size` (`match` lub `max`). `match` skaluje referencje do pola klatki, `max` do 2048 px krótszego boku, co jest kilka razy wolniejsze.
+- Kolejność widgetów węzła 7: `prompt`, `width`, `height`, `length`, `ref_image_size`. Graf API ma `ref_image_size: "match"`.
+- Referencje obrazów: do 9 (`ref_image_0..8`), wideo do 3, audio do 3.
+
+**Przed uruchomieniem sprawdź schemat zainstalowanej wersji** (wersja lokalna może się różnić od `master`):
+
+```bash
+curl -s http://127.0.0.1:8188/object_info/MiniMaxH3ReferenceToVideo | python3 -m json.tool | head -80
+```
+
+**Przy pierwszym uruchomieniu sprawdź:**
+1. Czy `ref_image_0` i `ref_image_1` przyjmują się jako wejścia (przy autogrow mogą mieć inne nazwy w API).
+2. Wyjście bez szumu i mozaiki (gfx1201, patrz RESEARCH_DEEP §7).
 
 ## 4. Kryteria akceptacji (propozycje)
 

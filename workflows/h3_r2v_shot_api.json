@@ -49,7 +49,8 @@
       "prompt": "WRITE THE SHOT PROMPT HERE: one story beat, named camera, no speech",
       "width": 1344,
       "height": 768,
-      "length": 243
+      "length": 243,
+      "ref_image_size": "match"
     }
   },
   "8": {

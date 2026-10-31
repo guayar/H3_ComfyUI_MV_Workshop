@@ -24,8 +24,9 @@ Formuła długości z szablonu (`ComfyMathExpression`): dla czasu `a` w sekundac
 
 **Uwagi o szablonie:**
 - Szablon używa `SaveVideo`. Według briefu `SaveVideo` przesuwa kolory (BT.601 vs BT.709), dlatego graf zapisuje PNG (`SaveImage`), a kodowanie robimy osobno ffmpeg.
-- `MiniMaxH3ReferenceToVideo` ma w szablonie szósty parametr `"match"`, którego nazwy nie znam. W grafie go pominąłem. **[NIEZWERYFIKOWANE]**
-- Kolejność wyjść `MiniMaxH3ReferenceToVideo` (który wyjściowy slot to warunkowanie, a który latent) **nie jest potwierdzona**. W grafie przyjąłem `conditioning` = slot 0, `latent` = slot 1. Pierwsze uruchomienie musi to sprawdzić. **[NIEZWERYFIKOWANE]**
+- **[ZWERYFIKOWANE w kodzie]** Szósty parametr szablonu `"match"` to widget `ref_image_size` (`match` | `max`). Graf ma go ustawiony na `match`.
+- **[ZWERYFIKOWANE w kodzie]** Wyjścia `MiniMaxH3ReferenceToVideo`: slot 0 = `positive` (CONDITIONING), slot 1 = `LATENT`. Graf jest zgodny.
+- **[ZWERYFIKOWANE w kodzie]** Wejścia: `clip`, `vae` (opcjonalne, bez niego referencje obrazów działają tylko na enkoder tekstu), `audio_vae`, `prompt`, `width`, `height`, `length` (krok 17), `ref_image_size`, autogrow `ref_images` (0–9), `ref_videos` (0–3), `ref_video_audios` (0–3), `ref_audios` (0–3). Źródło: https://raw.githubusercontent.com/Comfy-Org/ComfyUI/master/comfy_extras/nodes_minimax_h3.py
 - Węzły `SaveImage`, `LoadImage`, `VAEDecode`, `BasicScheduler` itd. to węzły rdzenia ComfyUI. Ich nazwy są standardowe.
 
 ## 2. Kamera (problem #1)
@@ -99,3 +100,17 @@ Formuła długości z szablonu (`ComfyMathExpression`): dla czasu `a` w sekundac
 4. ControlNet przez granicę ujęć: czy zachowuje geometrię zestawu (metryka skali i przesunięcia).
 5. Wyciszenie ruchu ust bez audio.
 6. Szum/mozaika na gfx1201.
+
+## 11. Addendum (2026-10-31): co zweryfikowano i co przejęto
+
+Źródła poniżej podał kolejny raport. Oznaczenia: **[KOD]** przeczytany w kodzie, **[ISSUE]** zgłoszenie użytkownika, **[DEKLARACJA]** autor bez niezależnego pomiaru, **[NIEZWERYFIKOWANE]** nie opierać na tym produkcji.
+
+- **[KOD] Native Fun ControlNet** (`MiniMaxH3FunControlNetApply`, ten sam plik `nodes_minimax_h3.py`): wejścia `model`, `model_patch` (MODEL_PATCH), `vae`, `strength` (1.0, 0–10), `start_percent` (0.0), `end_percent` (1.0), opcjonalnie `control_video` (IMAGE), `mask` (1 = do wygenerowania), `source_video` (tło pod maską). Wyjście: MODEL. **Loadera `model_patch` nie ma w tym pliku**, trzeba go znaleźć w `/object_info`.
+- **[KOD] Extender `tritant`** (wersja w `main` to 3.0.14, lokalnie 3.0.12): klasy `MiniMaxH3Extender` (wyświetlana: „MiniMax H3 Extender”), `MiniMaxH3ReferencePackBridge`, `MiniMaxH3TailFromLatent`. Domyślne wartości głównego węzła: `run_mode` clip_by_clip, `width` 896, `height` 576, `ref_image_size` match, `steps` 4, `denoise` 1.0, `context_length` "22", `generation_mode` ref2va, `motion_context` True, `refine_enabled` False. Brak dedykowanego wejścia ControlNet. Wejście `continue_existing_video` musi być natywnym VIDEO (np. Load Video), nie batchem klatek.
+- **[KOD] Shared denoising istnieje:** `Jalen-Brunson/ComfyUI-HybridWindows` (`H3HybridWindows`, `MMH3HybridWindowSampler`, `H3HybridControlNet`). Dwufazowy sampler: sekwencyjne rozgrzewanie okien, potem wspólny ogon na jednej osi czasu latentów. Domyślnie `sequential_steps=6`, `overlap_pin=full`. Wymaga MMH3Tools. **[DEKLARACJA]** poprawa dryfu w testach autora, nie zmierzona na R9700.
+- **[DEKLARACJA] Orbit LoRA** (`pablodawson`): FL2VA, 768×768, 73 klatki, 28 kroków, siła 1.0, trenowany na 28 orbitach. Brak niezależnego pomiaru kąta lub dryfu. Precyzyjnego dolly nie sprawdzono.
+- **[ISSUE] Audio/usta:** `vizart-vj/ComfyUI-MiniMax-H3-LongMedia#28`: cisza cyfrowa w pierwszych 5 s referencji lip-sync psuje dalszą mowę i audio; dodanie cichego ambientu to naprawiło u zgłaszającego. Brak natywnego `mute_lips` ani `disable_audio`. Usunięcie ścieżki audio nie usuwa ruchu ust.
+- **[ISSUE] ROCm:** `Comfy-Org/ComfyUI#15314` dotyczy gfx1100 (RX 7900 XTX), nie gfx1201. `ROCm/aiter#6066` to multi-GPU na gfx1201, bez poprawki dla pojedynczej karty. Patch `charlie12345` to Windows, nie stosować na Linux ROCm bez testu.
+- **[NIEZWERYFIKOWANE] Efekty fizyczne** (klapy podłogi): H3 może nie zinterpretować kontroli Canny/depth jako dokładnej fizyki klap. Wymaga testu.
+
+**Zasady z addendum, które obowiązują:** nie instalować ani nie aktualizować wtyczek bez przeglądu; porównać `/object_info` z kodem przed każdą zmianą; nie zakładać, że wersja z `master` jest tą lokalną; prompty pozytywne, jeden nazwany ruch kamery lub zablokowany statyw.
