@@ -30,6 +30,24 @@ Wagi są duże (Ref2VA int8 ok. 19,5 GB). Pobierz je przed startem.
 
 ---
 
+### Sprzęt: wymagania dla AMD R9700 (ROCm)
+
+Wszystkie grafy są przeznaczone dla Radeon AI PRO R9700 (gfx1201) na ROCm. Znane problemy zgodności:
+
+- **`qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors` (text encoder)** używa formatu NVFP4, który jest specyficzny dla NVIDIA. Na ROCm może się nie załadować lub nie działać. **Do zmiany przed pierwszym uruchomieniem** na wersję niekwantyzowaną lub inną zgodną z ROCm. Nazwa tego pliku nie jest zweryfikowana w tej sesji.
+- **Modele int8 (`*_int8_convrot`)** mogą korzystać z `torch._int_mm`. Według researchu ta funkcja była zepsuta na gfx1201 w patchu społecznościowym. Sprawdź przy pierwszym uruchomieniu, czy wynik nie jest zaszumiony lub zmozaikowany.
+- **Wagi bf16** Ref2VA mają ok. 61,7 GB, więc się nie zmieszczą w 32 GB VRAM bez offloadu.
+
+### Graf łańcucha ujęć: `workflows/h3_chain_ui.json`
+
+Trzy ujęcia (domyślnie 243 klatki każde, ok. 10,1 s), wygenerowane przez `scripts/build_ui_chain.py`. Każde kolejne ujęcie dostaje jako referencję (`ref_image_2`) ostatnią klatkę poprzedniego. Lokacja i postać są stałe we wszystkich ujęciach.
+
+```bash
+python3 scripts/build_ui_chain.py --shots 3 --frames 243 --out workflows/h3_chain_ui.json
+```
+
+Wczytaj plik w ComfyUI przez Workflow → Open. Przed uruchomieniem wpisz prompty w węzłach „Ujęcie N: Ref2VA”, a pliki `set_plate.png` i `character_sheet.png` umieść w `input/`.
+
 ## 2. Instalacja
 
 1. Zainstaluj ComfyUI i zweryfikuj działanie na ROCm.
