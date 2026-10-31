@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "fps": 24,
+  "duration": 248.76,
+  "shots": [
+    {
+      "start": 0,
+      "end": 5.17,
+      "frames": 124,
+      "prompt": "The gardener walks in and stops, camera locked off."
+    },
+    {
+      "start": 5.17,
+      "end": 15.3,
+      "frames": 243,
+      "prompt": "He turns toward the roses and grabs his head; camera locked off."
+    }
+  ],
+  "refs": {
+    "images": [
+      "set_plate.png",
+      "character_sheet.png"
+    ],
+    "videos": [],
+    "audio": []
+  }
+}

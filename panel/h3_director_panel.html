@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H3 Director: panel planu</title>
+<style>
+  :root { --bg:#14161b; --panel:#1d2028; --line:#2c313c; --txt:#e6e8ee; --dim:#8b93a5;
+          --acc:#2a9d8f; --warn:#e9c46a; --err:#e76f51; --ok:#8ab17d; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 14px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--txt); }
+  header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:12px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:18px; margin:0 12px 0 0; }
+  label { color:var(--dim); font-size:12px; }
+  input, textarea, select { background:#0f1116; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; }
+  input.bad { border-color:var(--err); }
+  textarea { width:100%; min-height:54px; resize:vertical; }
+  button { background:#262b36; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#06201c; font-weight:600; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  main { display:grid; grid-template-columns: 1fr 340px; gap:16px; padding:16px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:16px; }
+  section h2 { font-size:14px; margin:0 0 10px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; }
+  .timeline { position:relative; height:86px; background:#0f1116; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .tick { position:absolute; top:0; bottom:0; border-left:1px solid #242a35; font-size:10px; color:#4b5365; padding:2px 3px; }
+  .shot-bar { position:absolute; top:22px; height:52px; border-radius:6px; background:linear-gradient(#2a9d8f,#1f6f66);
+              color:#06201c; font-size:11px; padding:4px 6px; overflow:hidden; cursor:pointer; border:2px solid transparent; font-weight:600; }
+  .shot-bar.sel { border-color:var(--warn); }
+  .shot-bar.err { background:linear-gradient(#e76f51,#9c4a33); color:#fff; }
+  .playhead { position:absolute; top:0; bottom:0; width:2px; background:var(--warn); pointer-events:none; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:6px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-size:12px; font-weight:500; }
+  tr.sel td { background:#22262f; }
+  td.frames { font-variant-numeric: tabular-nums; color:var(--ok); white-space:nowrap; }
+  .msg { font-size:13px; margin:4px 0; }
+  .msg.err { color:var(--err); } .msg.warn { color:var(--warn); } .msg.ok { color:var(--ok); }
+  .refgroup { margin-bottom:14px; }
+  .refhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .counter { font-variant-numeric: tabular-nums; font-weight:600; }
+  .counter.full { color:var(--err); }
+  .refitem { display:flex; justify-content:space-between; align-items:center; background:#0f1116; border:1px solid var(--line);
+             border-radius:6px; padding:4px 8px; margin:4px 0; font-size:13px; }
+  .refitem .idx { color:var(--dim); margin-right:8px; font-variant-numeric: tabular-nums; }
+  .refadd { display:flex; gap:6px; margin-top:6px; }
+  .refadd input { flex:1; min-width:0; }
+  .note { font-size:12px; color:var(--dim); margin-top:6px; }
+  pre { background:#0f1116; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:260px; overflow:auto; font-size:12px; }
+  .row-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>H3 Director</h1>
+  <label>Dlugosc utworu (s)
+    <input id="duration" type="text" size="9" value="248.76">
+  </label>
+  <button id="btnNew">Nowy plan</button>
+  <button id="btnImport">Importuj JSON</button>
+  <input id="fileImport" type="file" accept="application/json" hidden>
+  <button id="btnExport" class="primary">Eksportuj plan</button>
+  <span id="status" class="note"></span>
+</header>
+
+<main>
+  <div>
+    <section>
+      <h2>Osia czasu</h2>
+      <div id="timeline" class="timeline"></div>
+      <div class="note">Kliknij ujecie, zeby je wybrac. Czas wpisujesz jako <b>12.5</b>, <b>1:02.5</b> albo <b>0:01:02.5</b>. Dlugosc zaokraglana jest do siatki 17n+5 klatek (24 fps).</div>
+    </section>
+
+    <section>
+      <h2>Ujecia</h2>
+      <table>
+        <thead><tr><th>#</th><th>Start</th><th>Koniec</th><th>Dlugosc</th><th>Klatki</th><th>Prompt (pozytywny, jeden ruch kamery)</th><th></th></tr></thead>
+        <tbody id="shots"></tbody>
+      </table>
+      <div class="row-actions">
+        <button id="btnAddShot">+ dodaj ujecie od konca poprzedniego</button>
+      </div>
+      <div id="shotMsgs"></div>
+    </section>
+  </div>
+
+  <div>
+    <section>
+      <h2>Referencje (progresywnie)</h2>
+      <div class="note">Dodajesz po kolei. Aktywne sa tylko dodane pozycje, reszta slotow jest ignorowana. Limit zalezy od modelu H3.</div>
+      <div id="refs"></div>
+    </section>
+
+    <section>
+      <h2>Komunikaty</h2>
+      <div id="msgs"></div>
+    </section>
+
+    <section>
+      <h2>Eksport planu (JSON)</h2>
+      <pre id="jsonOut">{}</pre>
+      <div class="row-actions">
+        <button id="btnDownload">Pobierz plan.json</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="plan_core.js"></script>
+<script>
+(function () {
+  "use strict";
+  const H = window.H3Plan;
+  const KIND_LABEL = { images: "Obrazy", videos: "Wideo", audio: "Audio" };
+
+  const state = { plan: H.makePlan(248.76), selected: -1 };
+  // surowe teksty pol czasu, zeby uzytkownik mogl pisac (nie kasujemy przy bledzie)
+  const drafts = {};
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, attrs, text) => {
+    const n = document.createElement(tag);
+    if (attrs) for (const k of Object.keys(attrs)) {
+      if (attrs[k] === null || attrs[k] === undefined) continue; // brak atrybutu, nie "null"
+      if (k === "class") n.className = attrs[k];
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), attrs[k]);
+      else n.setAttribute(k, attrs[k]);
+    }
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  function sortedShots() {
+    return state.plan.shots.map((s, i) => ({ s, i })).sort((a, b) => a.s.start - b.s.start);
+  }
+
+  function shotCount() { return state.plan.shots.length; }
+
+  function setStatus(text) { $("status").textContent = text || ""; }
+
+  // ---------- osia czasu ----------
+  function renderTimeline() {
+    const tl = $("timeline");
+    tl.innerHTML = "";
+    const D = state.plan.duration;
+    if (!(D > 0)) return;
+    const step = D > 120 ? 30 : D > 40 ? 10 : 5;
+    for (let t = 0; t <= D; t += step) {
+      const left = (t / D) * 100;
+      tl.appendChild(el("div", { class: "tick", style: `left:${left}%` }, H.formatTime(t).replace(/\.00$/, "")));
+    }
+    const validity = H.validateShots(state.plan.shots);
+    const badIdx = new Set();
+    state.plan.shots.forEach((s, i) => {
+      if (!(s.end > s.start)) badIdx.add(i);
+    });
+    sortedShots().forEach(({ s, i }) => {
+      if (!(s.end > s.start)) return;
+      const left = (s.start / D) * 100;
+      const width = Math.max(0.5, ((s.end - s.start) / D) * 100);
+      const cls = ["shot-bar"];
+      if (i === state.selected) cls.push("sel");
+      if (badIdx.has(i) || validity.errors.some((e) => e.includes(`ujecie ${i + 1}`))) cls.push("err");
+      const bar = el("div", {
+        class: cls.join(" "),
+        style: `left:${left}%;width:${width}%`,
+        title: `${i + 1}: ${H.formatTime(s.start)} - ${H.formatTime(s.end)}`,
+        onclick: () => { state.selected = i; render(); },
+      }, `#${i + 1} ${H.shotFrames(s)} kl.`);
+      tl.appendChild(bar);
+    });
+  }
+
+  // ---------- tabela ujec ----------
+  function renderShots() {
+    const body = $("shots");
+    body.innerHTML = "";
+    const rows = sortedShots();
+    rows.forEach(({ s, i }, n) => {
+      const tr = el("tr", { class: i === state.selected ? "sel" : "" });
+      tr.appendChild(el("td", null, String(n + 1)));
+      const startKey = `s${i}`, endKey = `e${i}`;
+      const startIn = el("input", { type: "text", size: "8", value: drafts[startKey] ?? H.formatTime(s.start) });
+      const endIn = el("input", { type: "text", size: "8", value: drafts[endKey] ?? H.formatTime(s.end) });
+      const commit = (input, key, field) => () => {
+        drafts[key] = input.value;
+        try {
+          const v = H.parseTime(input.value);
+          s[field] = v;
+          input.classList.remove("bad");
+          delete drafts[key];
+        } catch (e) {
+          input.classList.add("bad");
+          setStatus(e.message);
+          return;
+        }
+        render();
+      };
+      startIn.addEventListener("change", commit(startIn, startKey, "start"));
+      endIn.addEventListener("change", commit(endIn, endKey, "end"));
+      tr.appendChild(el("td", null)).appendChild(startIn);
+      tr.appendChild(el("td", null)).appendChild(endIn);
+      const dur = s.end - s.start;
+      tr.appendChild(el("td", null, dur > 0 ? dur.toFixed(2) + " s" : "-"));
+      tr.appendChild(el("td", { class: "frames" }, dur > 0 ? `${H.shotFrames(s)} kl.` : "-"));
+      const prompt = el("textarea", { placeholder: "np. The gardener walks in and stops, camera locked off." });
+      prompt.value = s.prompt || "";
+      prompt.addEventListener("input", () => { s.prompt = prompt.value; renderMsgs(); renderJSON(); });
+      prompt.addEventListener("focus", () => { state.selected = i; renderTimeline(); });
+      tr.appendChild(el("td", null)).appendChild(prompt);
+      const del = el("button", { onclick: () => {
+        state.plan.shots.splice(i, 1);
+        state.selected = -1;
+        for (const k of Object.keys(drafts)) delete drafts[k];
+        render();
+      } }, "Usun");
+      tr.appendChild(el("td", null)).appendChild(del);
+      body.appendChild(tr);
+    });
+  }
+
+  function addShot() {
+    const last = state.plan.shots.reduce((m, s) => Math.max(m, s.end), 0);
+    const start = Math.min(last, state.plan.duration);
+    const end = Math.min(start + 5.17, state.plan.duration);
+    state.plan.shots.push({ start, end: end > start ? end : start + 5.17, prompt: "" });
+    state.selected = state.plan.shots.length - 1;
+    render();
+  }
+
+  // ---------- referencje ----------
+  function renderRefs() {
+    const box = $("refs");
+    box.innerHTML = "";
+    const counts = H.refCounts(state.plan.refs, shotCount());
+    for (const kind of ["images", "videos", "audio"]) {
+      const c = counts[kind];
+      const full = c.used >= c.limit;
+      const group = el("div", { class: "refgroup" });
+      const head = el("div", { class: "refhead" });
+      head.appendChild(el("span", null, KIND_LABEL[kind]));
+      head.appendChild(el("span", { class: "counter" + (full ? " full" : "") }, `${c.used} / ${c.limit}`));
+      group.appendChild(head);
+      state.plan.refs[kind].forEach((name, idx) => {
+        const item = el("div", { class: "refitem" });
+        const left = el("span", null);
+        left.appendChild(el("span", { class: "idx" }, String(idx + 1)));
+        left.appendChild(document.createTextNode(name));
+        item.appendChild(left);
+        item.appendChild(el("button", { onclick: () => {
+          try {
+            state.plan.refs = H.removeRef(state.plan.refs, kind, idx);
+            render();
+          } catch (e) { setStatus(e.message); }
+        } }, "x"));
+        group.appendChild(item);
+      });
+      const adder = el("div", { class: "refadd" });
+      const input = el("input", { type: "text", placeholder: kind === "images" ? "set_plate.png" : kind === "videos" ? "ref_video_01.mp4" : "ref_audio_01.wav", disabled: full ? "" : null });
+      const add = el("button", { disabled: full ? "" : null, onclick: () => {
+        try {
+          state.plan.refs = H.addRef(state.plan.refs, kind, input.value, shotCount());
+          setStatus("");
+          render();
+        } catch (e) { setStatus(e.message); }
+      } }, "Dodaj");
+      input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") add.click(); });
+      adder.appendChild(input);
+      adder.appendChild(add);
+      group.appendChild(adder);
+      if (full) group.appendChild(el("div", { class: "note" }, "Limit osiagniety. Usun pozycje, zeby dodac kolejna."));
+      box.appendChild(group);
+    }
+    const ignoredNote = shotCount() > 1
+      ? "Ujecia 2 i kolejne dostaja automatycznie ostatnia klatke poprzedniego ujecia: zajmuje jeden slot obrazu."
+      : "Przy jednym ujeciu wszystkie 9 slotow obrazu jest do dyspozycji.";
+    box.appendChild(el("div", { class: "note" }, ignoredNote));
+  }
+
+  // ---------- komunikaty i JSON ----------
+  function renderMsgs() {
+    const box = $("msgs");
+    box.innerHTML = "";
+    const v = H.validateShots(state.plan.shots);
+    const refErr = H.validateRefs(state.plan.refs, shotCount());
+    const emptyPrompts = state.plan.shots.filter((s) => !s.prompt || !s.prompt.trim()).length;
+    const all = [...v.errors, ...refErr];
+    all.forEach((m) => box.appendChild(el("div", { class: "msg err" }, "Blad: " + m)));
+    v.warnings.forEach((m) => box.appendChild(el("div", { class: "msg warn" }, "Uwaga: " + m)));
+    if (!all.length && !v.warnings.length) {
+      box.appendChild(el("div", { class: "msg ok" }, `Plan poprawny: ${shotCount()} ujec, ${state.plan.refs.images.length} obrazow, ${state.plan.refs.videos.length} wideo, ${state.plan.refs.audio.length} audio.`));
+    }
+    if (emptyPrompts && shotCount()) {
+      box.appendChild(el("div", { class: "msg warn" }, `${emptyPrompts} ujec bez promptu.`));
+    }
+    $("shotMsgs").innerHTML = "";
+    $("btnExport").disabled = all.length > 0;
+  }
+
+  function currentJSON() {
+    try {
+      return H.planToJSON(state.plan);
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
+  function renderJSON() {
+    $("jsonOut").textContent = JSON.stringify(currentJSON(), null, 2);
+  }
+
+  function render() {
+    renderTimeline();
+    renderShots();
+    renderRefs();
+    renderMsgs();
+    renderJSON();
+  }
+
+  // ---------- import / eksport ----------
+  function loadPlan(obj) {
+    if (!obj || obj.version !== 1 || !Array.isArray(obj.shots)) throw new Error("to nie jest plan H3 Director (version 1)");
+    const plan = H.makePlan(Number(obj.duration) || 0);
+    plan.shots = obj.shots.map((s) => ({ start: Number(s.start), end: Number(s.end), prompt: String(s.prompt || "") }));
+    plan.refs = {
+      images: (obj.refs && obj.refs.images || []).map(String),
+      videos: (obj.refs && obj.refs.videos || []).map(String),
+      audio: (obj.refs && obj.refs.audio || []).map(String),
+    };
+    state.plan = plan;
+    $("duration").value = String(plan.duration);
+    state.selected = -1;
+    for (const k of Object.keys(drafts)) delete drafts[k];
+    render();
+  }
+
+  $("duration").addEventListener("change", () => {
+    try {
+      state.plan.duration = H.parseTime($("duration").value);
+      $("duration").classList.remove("bad");
+      render();
+    } catch (e) {
+      $("duration").classList.add("bad");
+      setStatus(e.message);
+    }
+  });
+  $("btnNew").addEventListener("click", () => {
+    state.plan = H.makePlan(H.parseTime($("duration").value));
+    state.selected = -1;
+    for (const k of Object.keys(drafts)) delete drafts[k];
+    render();
+  });
+  $("btnAddShot").addEventListener("click", addShot);
+  $("btnImport").addEventListener("click", () => $("fileImport").click());
+  $("fileImport").addEventListener("change", (ev) => {
+    const f = ev.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { loadPlan(JSON.parse(reader.result)); setStatus("Wczytano plan."); }
+      catch (e) { setStatus("Blad importu: " + e.message); }
+    };
+    reader.readAsText(f);
+  });
+  $("btnExport").addEventListener("click", () => {
+    try {
+      const data = H.planToJSON(state.plan);
+      setStatus("Plan gotowy do zapisu (przycisk Pobierz).");
+      return data;
+    } catch (e) { setStatus(e.message); }
+  });
+  $("btnDownload").addEventListener("click", () => {
+    let data;
+    try { data = H.planToJSON(state.plan); }
+    catch (e) { setStatus(e.message); return; }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = el("a", { href: URL.createObjectURL(blob), download: "plan.json" });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setStatus("Pobrano plan.json");
+  });
+
+  render();
+  window.__h3panel = { state, loadPlan };
+})();
+</script>
+</body>
+</html>

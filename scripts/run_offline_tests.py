@@ -19,7 +19,12 @@ SUITES = [
     "test_audit_h3_runtime.py",
     "test_validate_graph_offline.py",
     "test_ref_limits.py",
+    "test_plan_graph.py",
 ]
+
+
+# Testy panelu w Node (bez przegladarki): logika planu. Test UI (Playwright) jest w panel/test_panel_ui.js.
+NODE_SUITES = ["panel/test_plan_core.js"]
 
 
 def main():
@@ -36,7 +41,17 @@ def main():
         if res.returncode != 0:
             failed.append(name)
             print(res.stdout[-800:], res.stderr[-800:])
-    print(f"\n{len(SUITES) - len(failed)}/{len(SUITES)} zestawow OK. Folder: {root}")
+    here_root = os.path.dirname(HERE)
+    for rel in NODE_SUITES:
+        res = subprocess.run(["node", os.path.join(here_root, rel)], capture_output=True, text=True, timeout=600)
+        status = "OK" if res.returncode == 0 else "FAIL"
+        last = (res.stdout.strip().splitlines() or [""])[-1][:90]
+        print(f"{status:4} {rel:32} {last}")
+        if res.returncode != 0:
+            failed.append(rel)
+            print(res.stdout[-800:], res.stderr[-800:])
+    total = len(SUITES) + len(NODE_SUITES)
+    print(f"\n{total - len(failed)}/{total} zestawow OK. Folder: {root}")
     return 1 if failed else 0
 
 

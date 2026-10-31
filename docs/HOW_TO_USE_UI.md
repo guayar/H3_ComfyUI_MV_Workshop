@@ -117,3 +117,32 @@ curl -s http://127.0.0.1:8188/object_info > object_info.json
 python3 scripts/validate_graph_offline.py workflows/h3_chain_controlnet_ui.json --schema object_info.json
 ```
 Walidator pokaże brakujące pliki, złe typy połączeń i nieprawidłowe wartości list.
+
+
+---
+
+## 9. Panel H3 Director (plan bez grzebania w JSON)
+
+Panel to plik `panel/h3_director_panel.html`. Otwierasz go w przeglądarce dwuklikiem (nie wymaga serwera ani internetu).
+
+**Co robisz w panelu**
+1. Wpisz długość utworu (np. `248.76`).
+2. Dodawaj ujęcia przyciskiem **+ dodaj ujęcie**. Start i koniec wpisujesz jako `12.5`, `1:02.5` albo `0:01:02.5`. Długość w klatkach zaokrągla się automatycznie do siatki 17n+5.
+3. Pisz prompt przy każdym ujęciu (pozytywnie, jeden ruch kamery).
+4. Referencje dodajesz **po kolei**: wpisz nazwę pliku z `input/` i kliknij **Dodaj**. Aktywne są tylko dodane pozycje. Gdy osiągniesz limit, przycisk się blokuje:
+   - obrazy: 9 (przy jednym ujęciu) albo 8 (przy wielu, bo ostatnia klatka poprzedniego ujęcia zajmuje jeden slot),
+   - wideo: 3,
+   - audio: 3 (wymaga też obrazu lub wideo).
+5. Kliknij **Pobierz plan.json**. Eksport jest zablokowany, dopóki panel pokazuje błędy.
+
+**Z planu do grafu**
+```bash
+python3 scripts/build_ui_chain.py --plan plan.json --out workflows/h3_from_plan.json
+```
+Generator bierze z planu liczbę ujęć, długości, prompty i nazwy plików. Odrzuca klatki spoza siatki 17n+5 i za dużo obrazów.
+
+**Przykład:** `panel/example_plan.json` (dwa ujęcia, bez referencji dodatkowych). Wygenerowany graf: `workflows/h3_chain_from_plan_example.json`.
+
+**Co panel NIE robi:** nie uruchamia ComfyUI i nie jest węzłem wewnątrz ComfyUI. To osobne narzędzie planowania. Osadzenie jako węzeł w ComfyUI wymaga instalacji wtyczki i testu w działającym ComfyUI (nie zrobione).
+
+**Testy:** `node panel/test_plan_core.js` (logika) oraz `node panel/test_panel_ui.js` (interfejs w Chromium, wymaga Playwright).

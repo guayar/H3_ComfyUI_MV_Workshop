@@ -73,9 +73,31 @@ class Graph:
 CONTROL_PATCH_FILE = "minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors"
 
 
-def build(shots, frames, controlnet=False, text_encoder_value=None, extra_images=0, ref_videos=0, ref_audios=0):
+def build(shots, frames, controlnet=False, text_encoder_value=None, extra_images=0, ref_videos=0, ref_audios=0,
+          plan=None):
+    """Buduje graf. Gdy podano plan (słownik z panelu H3 Director), ujecia, dlugosci, prompty i nazwy plikow pochodza z planu."""
     g = Graph()
-    last_index = frames - 1
+    if plan:
+        specs = plan["shots"]
+        shots = len(specs)
+        shot_frames = [int(sp["frames"]) for sp in specs]
+        shot_prompts = [sp.get("prompt") or f"SHOT {k+1} PROMPT: one story beat, named camera, no speech"
+                        for k, sp in enumerate(specs)]
+        refs = plan.get("refs", {})
+        img_names = list(refs.get("images", []))
+        set_name = img_names[0] if len(img_names) > 0 else "set_plate.png"
+        char_name = img_names[1] if len(img_names) > 1 else "character_sheet.png"
+        extra_img_names = img_names[2:]
+        vid_names = list(refs.get("videos", []))
+        aud_names = list(refs.get("audio", []))
+        extra_images, ref_videos, ref_audios = len(extra_img_names), len(vid_names), len(aud_names)
+    else:
+        shot_frames = [frames] * shots
+        shot_prompts = [f"SHOT {k+1} PROMPT: one story beat, named camera, no speech" for k in range(shots)]
+        set_name, char_name = "set_plate.png", "character_sheet.png"
+        extra_img_names = [f"extra_ref_image_{k+1:02d}.png" for k in range(extra_images)]
+        vid_names = [f"ref_video_{v+1:02d}.mp4" for v in range(ref_videos)]
+        aud_names = [f"ref_audio_{a+1:02d}.wav" for a in range(ref_audios)]
 
     # --- wspolne zasoby (jedno zrodlo dla wszystkich ujec) ---
     unet = g.add("UNETLoader", "Model H3 Ref2VA", [], [("MODEL", "MODEL")],
@@ -92,9 +114,9 @@ def build(shots, frames, controlnet=False, text_encoder_value=None, extra_images
     vae_a = g.add("VAELoader", "VAE audio H3", [], [("VAE", "VAE")],
                   ["minimax_h3_audio_vae_fp32.safetensors"], (0, 540))
     set_plate = g.add("LoadImage", "Referencja: lokacja (stala)", [], [("IMAGE", "IMAGE"), ("MASK", "MASK")],
-                      ["set_plate.png", "image"], (0, 720))
+                      [set_name, "image"], (0, 720))
     character = g.add("LoadImage", "Referencja: postac (stala)", [], [("IMAGE", "IMAGE"), ("MASK", "MASK")],
-                      ["character_sheet.png", "image"], (0, 900))
+                      [char_name, "image"], (0, 900))
     sampler = g.add("KSamplerSelect", "Sampler", [], [("SAMPLER", "SAMPLER")], ["res_multistep"], (400, 0))
     sched = g.add("BasicScheduler", "Harmonogram krokow", [("model", "MODEL")], [("SIGMAS", "SIGMAS")],
                   ["simple", STEPS, 1], (400, 180))
@@ -109,18 +131,18 @@ def build(shots, frames, controlnet=False, text_encoder_value=None, extra_images
     extra_nodes = []  # (nazwa_wejscia, typ, id_wezla_zrodlowego)
     for k in range(extra_images):
         nid = g.add("LoadImage", f"Referencja dodatkowa obraz {k+1}", [], [("IMAGE", "IMAGE"), ("MASK", "MASK")],
-                    [f"extra_ref_image_{k+1:02d}.png", "image"], (-420, 1300 + k * 140))
+                    [extra_img_names[k], "image"], (-420, 1300 + k * 140))
         extra_nodes.append((f"ref_image_{3 + k}", "IMAGE", nid, 0))
     for v in range(ref_videos):
         lv = g.add("LoadVideo", f"Referencja wideo {v+1}: plik", [], [("VIDEO", "VIDEO")],
-                   [f"ref_video_{v+1:02d}.mp4", "video"], (-420, 1700 + v * 300))
+                   [vid_names[v], "video"], (-420, 1700 + v * 300))
         cv = g.add("GetVideoComponents", f"Referencja wideo {v+1}: klatki", [("video", "VIDEO")],
                    [("images", "IMAGE")], [], (-420, 1840 + v * 300))
         g.connect(lv, 0, cv, "video")
         extra_nodes.append((f"ref_video_{v}", "IMAGE", cv, 0))
     for a_i in range(ref_audios):
         la = g.add("LoadAudio", f"Referencja audio {a_i+1}", [], [("AUDIO", "AUDIO")],
-                   [f"ref_audio_{a_i+1:02d}.wav", "audio"], (-420, 2600 + a_i * 140))
+                   [aud_names[a_i], "audio"], (-420, 2600 + a_i * 140))
         extra_nodes.append((f"ref_audio_{a_i}", "AUDIO", la, 0))
 
     mp_loader = None
@@ -144,7 +166,7 @@ def build(shots, frames, controlnet=False, text_encoder_value=None, extra_images
         ref = g.add("MiniMaxH3ReferenceToVideo", f"Ujecie {i+1}: Ref2VA (SPRAWDZ WYJSCIA)",
                     ref_inputs,
                     [("CONDITIONING", "CONDITIONING"), ("LATENT", "LATENT")],
-                    [f"SHOT {i+1} PROMPT: one story beat, named camera, no speech", WIDTH, HEIGHT, frames, "match"],
+                    [shot_prompts[i], WIDTH, HEIGHT, shot_frames[i], "match"],
                     (col_x, row_y))
         g.connect(clip, 0, ref, "clip")
         g.connect(vae_v, 0, ref, "vae")
@@ -200,7 +222,7 @@ def build(shots, frames, controlnet=False, text_encoder_value=None, extra_images
 
         if i < shots - 1:
             last = g.add("ImageFromBatch", f"Ujecie {i+1}: ostatnia klatka -> ref dla ujecia {i+2}",
-                         [("image", "IMAGE")], [("IMAGE", "IMAGE")], [last_index, 1], (col_x, row_y + 1040))
+                         [("image", "IMAGE")], [("IMAGE", "IMAGE")], [shot_frames[i] - 1, 1], (col_x, row_y + 1040))
             g.connect(dec, 0, last, "image")
             prev_last_frame = last
 
@@ -258,6 +280,7 @@ def main():
                         help="referencje wideo (input/ref_video_NN.mp4), limit H3: 3")
     parser.add_argument("--ref-audios", type=int, default=0, choices=range(0, 4),
                         help="referencje audio (input/ref_audio_NN.wav), limit H3: 3. Wymagaja referencji obrazu lub wideo")
+    parser.add_argument("--plan", help="plik planu z panelu H3 Director (plan.json); nadpisuje --shots/--frames i nazwy plikow")
     parser.add_argument("--controlnet", action="store_true",
                         help="dodaj Fun ControlNet: na ujecie wideo input/control_shot_NN.mp4 (patrz scripts/make_control.py)")
     args = parser.parse_args()
@@ -271,8 +294,22 @@ def main():
     base_images = 2 + (1 if args.shots > 1 else 0)
     if base_images + args.extra_ref_images > max_images:
         parser.error(f"obrazow referencji najwyzej {max_images}: {base_images} stale + {args.extra_ref_images} dodatkowe")
+    plan = None
+    if args.plan:
+        with open(args.plan, encoding="utf-8") as fh:
+            plan = json.load(fh)
+        if plan.get("version") != 1:
+            parser.error("plan: nieobslugiwana wersja (oczekiwano 1)")
+        for k, sp in enumerate(plan["shots"]):
+            if sp["frames"] % 17 != 5:
+                parser.error(f"plan: ujecie {k+1} ma {sp['frames']} klatek (nie 17n+5)")
+        n_img = len(plan.get("refs", {}).get("images", []))
+        limit = 8 if len(plan["shots"]) > 1 else 9  # ostatnia klatka poprzedniego ujecia zajmuje jeden slot
+        if n_img > limit:
+            parser.error(f"plan: {n_img} obrazow od uzytkownika; limit {limit} dla {len(plan['shots'])} ujec")
     wf = build(args.shots, args.frames, args.controlnet, args.text_encoder_value,
-               extra_images=args.extra_ref_images, ref_videos=args.ref_videos, ref_audios=args.ref_audios)
+               extra_images=args.extra_ref_images, ref_videos=args.ref_videos, ref_audios=args.ref_audios,
+               plan=plan)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(wf, fh, ensure_ascii=False, indent=1)
     print(f"zapisano {args.out}: {len(wf['nodes'])} wezlow, {len(wf['links'])} polaczen")

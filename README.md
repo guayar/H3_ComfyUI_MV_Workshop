@@ -17,6 +17,7 @@ Każdy projekt dostarcza własne referencje postaci i lokacji, plan ujęć oraz 
 ## Jak używać w ComfyUI
 
 - 🖱️ **[Instrukcja obsługi w UI – docs/HOW_TO_USE_UI.md](docs/HOW_TO_USE_UI.md)**: które grafy otworzyć, co wpisać, gdzie są wyniki, jak zszyć.
+- 🎛️ **Panel H3 Director – `panel/h3_director_panel.html`**: plan ujęć z osią czasu, czasy wpisywane tekstem, referencje dodawane progresywnie z limitami; eksport `plan.json`.
 
 ## Graf
 
